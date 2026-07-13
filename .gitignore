@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+node_modules/
+dist/
+build/
+*.sqlite3
+backend/airdrops.db
+backend/screenshots/
+frontend/node_modules/
+.DS_Store
+.env

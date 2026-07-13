@@ -1,0 +1,245 @@
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from .config import DB_PATH
+
+
+def get_db_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def create_tables() -> None:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                hashed_password TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                email TEXT NOT NULL,
+                wallet TEXT NOT NULL,
+                chrome_port INTEGER NOT NULL,
+                ip_address TEXT NOT NULL DEFAULT '',
+                location TEXT NOT NULL DEFAULT '',
+                notes TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+        _migrate_profiles_table(conn)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS airdrops (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                project_name TEXT NOT NULL,
+                website TEXT NOT NULL,
+                reward_type TEXT NOT NULL,
+                deadline TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'NEW',
+                claim_link TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                airdrop_id INTEGER NOT NULL,
+                task_name TEXT NOT NULL,
+                task_type TEXT NOT NULL,
+                FOREIGN KEY (airdrop_id) REFERENCES airdrops(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id INTEGER NOT NULL,
+                task_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                screenshot_path TEXT,
+                timestamp TIMESTAMP NOT NULL,
+                FOREIGN KEY (profile_id) REFERENCES profiles(id),
+                FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                airdrop_id INTEGER NOT NULL,
+                platform TEXT NOT NULL,
+                message TEXT NOT NULL,
+                timestamp TIMESTAMP NOT NULL,
+                FOREIGN KEY (airdrop_id) REFERENCES airdrops(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.commit()
+
+
+def _migrate_profiles_table(conn: sqlite3.Connection) -> None:
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(profiles)").fetchall()}
+    if "ip_address" not in columns:
+        conn.execute("ALTER TABLE profiles ADD COLUMN ip_address TEXT NOT NULL DEFAULT ''")
+    if "location" not in columns:
+        conn.execute("ALTER TABLE profiles ADD COLUMN location TEXT NOT NULL DEFAULT ''")
+    conn.commit()
+
+
+def create_user(username: str, hashed_password: str) -> int:
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO users (username, hashed_password) VALUES (?, ?)",
+            (username, hashed_password),
+        )
+        conn.commit()
+        return cursor.lastrowid
+
+
+def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        return dict(row) if row else None
+
+
+def insert_airdrop(user_id: int, airdrop: Dict[str, Any], tasks: List[Dict[str, Any]]) -> int:
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO airdrops (user_id, project_name, website, reward_type, deadline, status, claim_link) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                user_id,
+                airdrop["project_name"],
+                airdrop["website"],
+                airdrop["reward_type"],
+                airdrop["deadline"],
+                airdrop.get("status", "NEW"),
+                airdrop.get("claim_link"),
+            ),
+        )
+        airdrop_id = cursor.lastrowid
+        for task in tasks:
+            conn.execute(
+                "INSERT INTO tasks (airdrop_id, task_name, task_type) VALUES (?, ?, ?)",
+                (airdrop_id, task["task_name"], task["task_type"]),
+            )
+        conn.commit()
+    return airdrop_id
+
+
+def update_airdrop_status(airdrop_id: int, status: str) -> None:
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE airdrops SET status = ? WHERE id = ?",
+            (status, airdrop_id),
+        )
+        conn.commit()
+
+
+def get_airdrops_by_user(user_id: int) -> List[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        airdrops = [dict(row) for row in conn.execute("SELECT * FROM airdrops WHERE user_id = ? ORDER BY created_at DESC", (user_id,)).fetchall()]
+        for airdrop in airdrops:
+            tasks = [dict(row) for row in conn.execute("SELECT * FROM tasks WHERE airdrop_id = ?", (airdrop["id"],)).fetchall()]
+            airdrop["tasks"] = tasks
+        return airdrops
+
+
+def get_airdrop_by_id(airdrop_id: int) -> Optional[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        row = conn.execute("SELECT * FROM airdrops WHERE id = ?", (airdrop_id,)).fetchone()
+        if not row:
+            return None
+        airdrop = dict(row)
+        airdrop["tasks"] = [dict(row) for row in conn.execute("SELECT * FROM tasks WHERE airdrop_id = ?", (airdrop_id,)).fetchall()]
+        return airdrop
+
+
+def get_profiles_by_user(user_id: int) -> List[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        return [dict(row) for row in conn.execute("SELECT * FROM profiles WHERE user_id = ? ORDER BY created_at", (user_id,)).fetchall()]
+
+
+def insert_profile(user_id: int, profile: Dict[str, Any]) -> int:
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO profiles (user_id, email, wallet, chrome_port, ip_address, location, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                user_id,
+                profile["email"],
+                profile["wallet"],
+                profile["chrome_port"],
+                profile["ip_address"],
+                profile["location"],
+                profile.get("notes"),
+            ),
+        )
+        conn.commit()
+        return cursor.lastrowid
+
+
+def get_progress_by_airdrop(airdrop_id: int) -> List[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        return [dict(row) for row in conn.execute(
+            "SELECT p.* FROM progress p JOIN tasks t ON p.task_id = t.id WHERE t.airdrop_id = ?",
+            (airdrop_id,),
+        ).fetchall()]
+
+
+def insert_progress(profile_id: int, task_id: int, status: str, screenshot_path: Optional[str] = None) -> int:
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO progress (profile_id, task_id, status, screenshot_path, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (profile_id, task_id, status, screenshot_path, datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+        return cursor.lastrowid
+
+
+def insert_notification(airdrop_id: int, platform: str, message: str) -> None:
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO notifications (airdrop_id, platform, message, timestamp) VALUES (?, ?, ?, ?)",
+            (airdrop_id, platform, message, datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+
+
+def get_notifications_by_user(user_id: int) -> List[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        return [dict(row) for row in conn.execute(
+            "SELECT n.* FROM notifications n JOIN airdrops a ON n.airdrop_id = a.id WHERE a.user_id = ? ORDER BY timestamp DESC",
+            (user_id,),
+        ).fetchall()]
+
+
+def cleanup_old_records(hours: int) -> int:
+    cutoff = datetime.utcnow().replace(hour=datetime.utcnow().hour - hours)
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM progress WHERE timestamp < ? AND status = 'DONE'",
+            (cutoff.isoformat(),),
+        )
+        deleted = cursor.rowcount
+        conn.commit()
+        return deleted
