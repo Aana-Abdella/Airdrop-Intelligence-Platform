@@ -14,6 +14,7 @@ from .profile_manager import PROFILE_TEMPLATES, capture_screenshot
 from .services.claims import get_claim_queue
 from .services.discovery import fetch_discovery_projects
 from .services.intelligence import build_project_score, recommend_action
+from .services.scheduler import get_scheduled_tasks
 from .services.wallets import get_wallet_summary
 
 app = FastAPI(
@@ -159,6 +160,14 @@ def get_dashboard(current_user: User = Depends(get_current_user)) -> dict:
                 "activity_count": item.activity_count,
             }
             for item in get_wallet_summary()
+        ],
+        "scheduler": [
+            {
+                "name": item.name,
+                "interval_minutes": item.interval_minutes,
+                "status": item.status,
+            }
+            for item in get_scheduled_tasks()
         ],
         "discovery_projects": [
             {
