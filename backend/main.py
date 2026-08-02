@@ -14,6 +14,7 @@ from .profile_manager import PROFILE_TEMPLATES, capture_screenshot
 from .services.claims import get_claim_queue
 from .services.discovery import fetch_discovery_projects
 from .services.intelligence import build_project_score, recommend_action
+from .services.wallets import get_wallet_summary
 
 app = FastAPI(
     title="Airdrop Workflow System",
@@ -149,6 +150,15 @@ def get_dashboard(current_user: User = Depends(get_current_user)) -> dict:
                 "reminder": item.reminder,
             }
             for item in get_claim_queue()
+        ],
+        "wallets": [
+            {
+                "chain": item.chain,
+                "balance": item.balance,
+                "gas_spent": item.gas_spent,
+                "activity_count": item.activity_count,
+            }
+            for item in get_wallet_summary()
         ],
         "discovery_projects": [
             {
