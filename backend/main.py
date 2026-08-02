@@ -14,6 +14,7 @@ from .profile_manager import PROFILE_TEMPLATES, capture_screenshot
 from .services.claims import get_claim_queue
 from .services.discovery import fetch_discovery_projects
 from .services.intelligence import build_project_score, recommend_action
+from .services.planner import get_daily_plan
 from .services.scheduler import get_scheduled_tasks
 from .services.wallets import get_wallet_summary
 
@@ -168,6 +169,15 @@ def get_dashboard(current_user: User = Depends(get_current_user)) -> dict:
                 "status": item.status,
             }
             for item in get_scheduled_tasks()
+        ],
+        "planner": [
+            {
+                "title": item.title,
+                "estimate": item.estimate,
+                "cost": item.cost,
+                "priority": item.priority,
+            }
+            for item in get_daily_plan()
         ],
         "discovery_projects": [
             {
