@@ -11,6 +11,7 @@ from .auth import authenticate_user, create_access_token, get_current_user, get_
 from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS, SCREENSHOT_BASE
 from .models import AirdropCreate, AirdropResponse, AirdropStatus, ProfileCreate, Profile, ProgressStatus, StepExecution, Token, User, UserCreate
 from .profile_manager import PROFILE_TEMPLATES, capture_screenshot
+from .services.claims import get_claim_queue
 from .services.discovery import fetch_discovery_projects
 from .services.intelligence import build_project_score, recommend_action
 
@@ -139,6 +140,16 @@ def get_dashboard(current_user: User = Depends(get_current_user)) -> dict:
         "profiles": len(profiles),
         "recommendations": recommendations,
         "latest_airdrops": airdrops[:3],
+        "claims": [
+            {
+                "project": item.project,
+                "snapshot_date": item.snapshot_date,
+                "claim_date": item.claim_date,
+                "status": item.status,
+                "reminder": item.reminder,
+            }
+            for item in get_claim_queue()
+        ],
         "discovery_projects": [
             {
                 "name": project.name,
