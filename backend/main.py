@@ -11,6 +11,7 @@ from .auth import authenticate_user, create_access_token, get_current_user, get_
 from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS, SCREENSHOT_BASE
 from .models import AirdropCreate, AirdropResponse, AirdropStatus, ProfileCreate, Profile, ProgressStatus, StepExecution, Token, User, UserCreate
 from .profile_manager import PROFILE_TEMPLATES, capture_screenshot
+from .services.intelligence import build_project_score, recommend_action
 
 app = FastAPI(
     title="Airdrop Workflow System",
@@ -106,6 +107,38 @@ def read_users_me(current_user: User = Depends(get_current_user)) -> User:
 def get_airdrops(current_user: User = Depends(get_current_user)) -> Dict[str, List[AirdropResponse]]:
     airdrops = database.get_airdrops_by_user(current_user.id)
     return _group_airdrops_by_status(airdrops)
+
+
+@app.get("/dashboard")
+def get_dashboard(current_user: User = Depends(get_current_user)) -> dict:
+    airdrops = database.get_airdrops_by_user(current_user.id)
+    profiles = database.get_profiles_by_user(current_user.id)
+    recommendations = []
+    for airdrop in airdrops[:5]:
+        score = build_project_score(
+            funding=70,
+            investors=65,
+            community=75,
+            activity=60,
+            difficulty=40,
+            cost=20,
+            reward=85,
+            risk=25,
+            history=55,
+        )
+        recommendations.append(
+            {
+                "project_name": airdrop["project_name"],
+                "score": score["total"],
+                "action": recommend_action(int(score["total"]), 25, 20),
+            }
+        )
+    return {
+        "active_projects": len(airdrops),
+        "profiles": len(profiles),
+        "recommendations": recommendations,
+        "latest_airdrops": airdrops[:3],
+    }
 
 
 @app.post("/airdrops", response_model=AirdropResponse, status_code=status.HTTP_201_CREATED)

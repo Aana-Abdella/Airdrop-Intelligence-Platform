@@ -1,150 +1,83 @@
-# Airdrop Workflow System (AWS-lite)
+# Airdrop Intelligence Platform V2
 
-A secure, full-stack application for managing cryptocurrency airdrop workflows with progress tracking, screenshot evidence, and safe reporting.
+Airdrop Intelligence Platform V2 is the upgraded version of the original workflow bot. It now functions as a more polished, production-oriented platform for discovering, analyzing, and managing crypto airdrop opportunities with AI-guided recommendations.
 
-## Features
+## What changed in V2
 
-- **Authentication**: JWT-based login system with password hashing
-- **Profile Management**: Create and manage unlimited airdrop farming identities
-- **Workflow Tracking**: 5-phase lifecycle (NEW → ONGOING → COMPLETED → CLAIMABLE → ENDED)
-- **Screenshot System**: Automatic evidence capture for each task step
-- **Safe Reporting**: Clean notifications to Telegram, Discord, and X (Twitter)
-- **Database Cleanup**: Automatic removal of old records after 72 hours
-- **Scalable Design**: Supports unlimited profiles and dynamic workflows
+- Added an intelligence layer for project scoring and action recommendations
+- Introduced a richer dashboard experience for platform-style monitoring
+- Preserved the existing authentication, profile management, and workflow flow
+- Laid the groundwork for future PostgreSQL, Alembic, Redis, scheduler, and notification expansion
 
-## Tech Stack
+## Current capabilities
 
-- **Backend**: FastAPI + SQLite + JWT authentication
-- **Frontend**: React + Vite + TailwindCSS + React Router
-- **Automation**: Playwright (assisted mode only)
-- **Notifications**: Telegram Bot API + Discord Webhook + X API
+- JWT-based authentication and secure login flow
+- Profile management for airdrop farming identities
+- Workflow tracking across airdrop phases
+- AI-assisted recommendations via project scoring
+- Modernized dashboard UI with a SaaS-style layout
 
-## Project Structure
+## Tech stack
 
-```
+- Backend: FastAPI, SQLite, JWT, Pydantic
+- Frontend: React, Vite, Tailwind CSS
+- Intelligence: Python scoring and recommendation service
+- Automation: Playwright-ready workflow foundation
+
+## Project structure
+
+```text
 backend/
-  main.py              # FastAPI app with auth endpoints
-  database.py          # SQLite helpers and user-specific data
-  models.py            # Pydantic models for auth and workflows
-  auth.py              # JWT authentication utilities
-  notifier.py          # Safe posting to social platforms
-  status_engine.py     # Workflow status automation
-  profile_manager.py   # Profile and screenshot handling
-  config.py            # Environment configuration
-  requirements.txt     # Backend dependencies
-
+  main.py
+  auth.py
+  config.py
+  database.py
+  models.py
+  profile_manager.py
+  services/
+    intelligence.py
+  tests/
+    test_intelligence.py
 frontend/
   src/
-    App.jsx           # Main app with routing and auth
     components/
-      Login.jsx       # Authentication component
-      Dashboard.jsx   # Main workflow dashboard
-      ProfileManager.jsx # Profile CRUD interface
-    index.css         # Tailwind styles
-  package.json        # Frontend dependencies
-
-screenshots/           # Evidence storage (auto-cleaned)
+      Dashboard.jsx
+      Login.jsx
+      ProfileManager.jsx
 ```
 
-## Setup
+## Running locally
 
 ### Backend
 
-1. Install Python dependencies:
+1. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   python -m pip install -r backend/requirements.txt
    ```
 
-2. Configure environment in `backend/config.py`:
-   - `SECRET_KEY`: Change for production
-   - `DISCORD_WEBHOOK_URL`
-   - `TELEGRAM_BOT_TOKEN` & `TELEGRAM_CHAT_ID`
-   - `X_API_KEY`, `X_API_SECRET`, etc. (for X posting)
-
-3. Start the backend:
+2. Start the API:
    ```bash
    uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 ### Frontend
 
-1. Install Node dependencies:
+1. Install dependencies:
    ```bash
    cd frontend
    npm install
    ```
 
-2. Start the development server:
+2. Start the UI:
    ```bash
    npm run dev
    ```
 
-3. Access the app at `http://localhost:5173`
+## Next upgrade milestones
 
-## Usage
-
-1. **Register/Login**: Create an account or sign in
-2. **Manage Profiles**: Add farming identities (email, wallet, chrome port)
-3. **Create Airdrops**: Add projects with tasks and deadlines
-4. **Track Progress**: Execute steps, capture screenshots, update status
-5. **Receive Notifications**: Get safe updates on Telegram/Discord/X
-
-## Security Notes
-
-- All sensitive data (passwords, tokens) are hashed/encrypted
-- No wallet private keys or API secrets stored
-- Screenshots contain only task evidence, no sensitive info
-- JWT tokens required for all API access
-- Database records auto-cleaned after 72 hours
-
-## API Endpoints
-
-### Authentication
-- `POST /auth/register` - Create account
-- `POST /auth/login` - Get JWT token
-- `GET /auth/me` - Get user info
-
-### Profiles
-- `GET /profiles` - List user profiles
-- `POST /profiles` - Create new profile
-
-### Airdrops
-- `GET /airdrops` - Get user's airdrops grouped by status
-- `POST /airdrops` - Create new airdrop
-- `PATCH /airdrops/{id}/status` - Update status
-
-### Workflow
-- `POST /step` - Execute workflow step with screenshot
-- `GET /notifications` - Get posting history
-- `POST /refresh` - Manual status refresh
-
-## Workflow Phases
-
-1. **NEW**: Airdrop discovered, not started
-2. **ONGOING**: Tasks in progress
-3. **COMPLETED**: All tasks done, waiting for claim
-4. **CLAIMABLE**: Claim link available
-5. **ENDED**: Claimed or expired
-
-## Posting Safety
-
-Messages contain ONLY:
-- Project name
-- Task progress
-- Status updates
-- Screenshot attachments
-
-NEVER posts:
-- Wallet balances
-- Private keys
-- Login credentials
-- API tokens
-- Sensitive emails
-
-## Scalability
-
-- Unlimited profiles per user
-- Dynamic task creation
-- Automatic database cleanup
-- Horizontal scaling ready
+1. Replace SQLite with PostgreSQL and Alembic migrations
+2. Add a full discovery engine for Galxe, Layer3, Zealy, TaskOn, and other sources
+3. Build wallet, claim center, and farming planner modules
+4. Add scheduler jobs, Redis caching, and notification integrations
+5. Expand automated tests and deployment tooling
 
