@@ -100,6 +100,101 @@ function Dashboard({ user, onLogout }) {
           </div>
         </section>
 
+        <section className="mb-6 rounded-3xl border border-slate-700 bg-slate-900/80 p-5 shadow-lg shadow-slate-950/20">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Wallet Overview</h2>
+            <span className="text-sm text-slate-400">Cross-chain balances and gas usage</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {(dashboard?.wallets || []).map((item) => (
+              <div key={item.chain} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+                <p className="text-sm font-semibold text-white">{item.chain}</p>
+                <p className="mt-2 text-sm text-slate-400">Balance: {item.balance.toFixed(2)}</p>
+                <p className="mt-1 text-sm text-slate-400">Gas spent: {item.gas_spent.toFixed(2)}</p>
+                <p className="mt-3 inline-flex rounded-full bg-violet-600/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">
+                  {item.activity_count} activities
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-slate-700 bg-slate-900/80 p-5 shadow-lg shadow-slate-950/20">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Claim Center</h2>
+            <span className="text-sm text-slate-400">Upcoming snapshot and claim reminders</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {(dashboard?.claims || []).map((item) => (
+              <div key={item.project} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+                <p className="text-sm font-semibold text-white">{item.project}</p>
+                <p className="mt-2 text-sm text-slate-400">Snapshot: {item.snapshot_date}</p>
+                <p className="mt-1 text-sm text-slate-400">Claim: {item.claim_date}</p>
+                <p className="mt-3 inline-flex rounded-full bg-amber-600/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+                  {item.status}
+                </p>
+                <p className="mt-2 text-xs text-slate-500">{item.reminder}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-slate-700 bg-slate-900/80 p-5 shadow-lg shadow-slate-950/20">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Automation Queue</h2>
+            <span className="text-sm text-slate-400">Background jobs planned for refresh and reminder flows</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {(dashboard?.scheduler || []).map((item) => (
+              <div key={item.name} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+                <p className="text-sm font-semibold text-white">{item.name}</p>
+                <p className="mt-2 text-sm text-slate-400">Every {item.interval_minutes} minutes</p>
+                <p className="mt-3 inline-flex rounded-full bg-sky-600/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-300">
+                  {item.status}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-slate-700 bg-slate-900/80 p-5 shadow-lg shadow-slate-950/20">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Farming Planner</h2>
+            <span className="text-sm text-slate-400">Today’s tasks with estimated time, cost, and priority</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {(dashboard?.planner || []).map((item) => (
+              <div key={item.title} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+                <p className="text-sm font-semibold text-white">{item.title}</p>
+                <p className="mt-2 text-sm text-slate-400">Estimate: {item.estimate}</p>
+                <p className="mt-1 text-sm text-slate-400">Cost: {item.cost}</p>
+                <p className="mt-3 inline-flex rounded-full bg-cyan-600/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
+                  {item.priority}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-slate-700 bg-slate-900/80 p-5 shadow-lg shadow-slate-950/20">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Discovery Feed</h2>
+            <span className="text-sm text-slate-400">Seeded source candidates for upcoming expansion</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {(dashboard?.discovery_projects || []).map((item) => (
+              <div key={item.name} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+                <p className="text-sm font-semibold text-white">{item.name}</p>
+                <p className="mt-2 text-sm text-slate-400">Source: {item.source}</p>
+                <p className="mt-2 text-sm text-slate-400">Reward: {item.reward_type}</p>
+                <p className="mt-3 inline-flex rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                  Score {item.score}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <section className="grid gap-4 xl:grid-cols-5">
           {columns.map((column) => (
             <div key={column.key} className="rounded-3xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-slate-950/20">
