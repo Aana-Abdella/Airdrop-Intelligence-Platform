@@ -1,181 +1,83 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { useCallback, useEffect, useState } from 'react';
+import api from '../api';
+import { AppShell, EmptyState, Icon } from './ui';
+
+const initialForm = { email: '', wallet: '', chrome_port: 9222, chrome_profile: '', x_handle: '', discord_handle: '', ip_address: '', location: '', notes: '' };
+const inputClass = 'w-full rounded-xl border border-white/[0.08] bg-[#0a0f17] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-700 focus:border-indigo-400/40 focus:ring-4 focus:ring-indigo-500/10';
 
 function ProfileManager({ user, onLogout }) {
   const [profiles, setProfiles] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    wallet: '',
-    chrome_port: '',
-    ip_address: '',
-    location: '',
-    notes: '',
-  });
+  const [formData, setFormData] = useState(initialForm);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchProfiles();
+  const fetchProfiles = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await api.get('/profiles');
+      setProfiles(response.data);
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || 'Unable to load farming profiles.');
+    } finally { setLoading(false); }
   }, []);
 
-  const fetchProfiles = async () => {
+  useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
     try {
-      const response = await axios.get('http://localhost:8000/profiles');
-      setProfiles(response.data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+      await api.post('/profiles', { ...formData, chrome_port: Number(formData.chrome_port) });
+      setFormData(initialForm);
+      setShowForm(false);
+      await fetchProfiles();
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || 'Unable to create this profile.');
+    } finally { setSubmitting(false); }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.post('http://localhost:8000/profiles', {
-        ...formData,
-        chrome_port: parseInt(formData.chrome_port),
-      });
-      setFormData({ email: '', wallet: '', chrome_port: '', ip_address: '', location: '', notes: '' });
-      setShowForm(false);
-      fetchProfiles();
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  const closeForm = () => { setShowForm(false); setFormData(initialForm); };
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 text-slate-100">
-      <div className="mx-auto max-w-4xl">
-        <header className="mb-6 flex flex-col gap-3 rounded-3xl border border-slate-700 bg-slate-900/80 p-6 shadow-xl shadow-slate-950/20 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.35em] text-sky-400">Profile Manager</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">Manage Your Profiles</h1>
-            <p className="mt-2 max-w-2xl text-slate-400">Create and manage airdrop farming identities.</p>
-          </div>
-          <div className="flex gap-4">
-            <Link
-              to="/"
-              className="rounded-2xl bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-700"
-            >
-              Back to Dashboard
-            </Link>
-            <button
-              onClick={onLogout}
-              className="rounded-2xl bg-red-800 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-red-700"
-            >
-              Logout
-            </button>
-          </div>
-        </header>
+    <AppShell user={user} onLogout={onLogout} eyebrow="Identity operations" title="Farming profiles" actions={<button onClick={() => setShowForm(true)} className="flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-950/30 transition hover:bg-indigo-400"><Icon name="plus" className="h-4 w-4" />New profile</button>}>
+      <div className="mb-7 max-w-2xl"><p className="text-sm leading-6 text-slate-500">Organize isolated browser identities, proxy configurations, and operational notes for consistent multi-profile farming.</p></div>
 
-        <div className="mb-6">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="rounded-2xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
-          >
-            {showForm ? 'Cancel' : 'Add New Profile'}
-          </button>
-        </div>
+      {error && <div role="alert" className="mb-6 flex items-center justify-between rounded-2xl border border-red-500/15 bg-red-500/[0.06] px-5 py-4 text-sm text-red-300"><span>{error}</span><button onClick={fetchProfiles} className="font-semibold text-red-200">Retry</button></div>}
 
-        {showForm && (
-          <form onSubmit={handleSubmit} className="mb-6 rounded-3xl border border-slate-700 bg-slate-900/80 p-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-slate-300">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-slate-700 bg-slate-800 text-white px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300">Wallet</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.wallet}
-                  onChange={(e) => setFormData({ ...formData, wallet: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-slate-700 bg-slate-800 text-white px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300">Chrome Port</label>
-                <input
-                  type="number"
-                  required
-                  value={formData.chrome_port}
-                  onChange={(e) => setFormData({ ...formData, chrome_port: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-slate-700 bg-slate-800 text-white px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300">IP Address</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="192.168.1.101"
-                  value={formData.ip_address}
-                  onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-slate-700 bg-slate-800 text-white px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300">Location</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="New York, USA"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-slate-700 bg-slate-800 text-white px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300">Notes</label>
-                <input
-                  type="text"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-slate-700 bg-slate-800 text-white px-3 py-2"
-                />
-              </div>
-            </div>
-            <div className="mt-4">
-              <button
-                type="submit"
-                className="rounded-2xl bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-              >
-                Create Profile
-              </button>
-            </div>
+      <section className="mb-20 grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 lg:mb-0">
+        {profiles.map((profile, index) => <article key={profile.id} className="group rounded-2xl border border-white/[0.07] bg-[#0d121c] p-5 transition hover:-translate-y-0.5 hover:border-indigo-400/15 hover:shadow-xl hover:shadow-black/20">
+          <div className="flex items-start justify-between"><span className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 text-sm font-semibold uppercase text-indigo-300">{(profile.email || 'AI').slice(0, 2)}</span><span className="flex items-center gap-1.5 rounded-full bg-emerald-500/[0.07] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Ready</span></div>
+          <div className="mt-5"><h2 className="truncate text-base font-semibold text-white">{profile.email}</h2><p className="mt-1 text-xs text-slate-600">Profile #{String(index + 1).padStart(2, '0')} · {profile.location || 'Unassigned location'}</p></div>
+          <div className="mt-5 space-y-3 border-t border-white/[0.06] pt-4">
+            <div><p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">Wallet</p><p className="mt-1.5 truncate text-xs text-slate-400">{profile.wallet}</p></div>
+            <div><p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">Chrome profile</p><p className="mt-1.5 truncate text-xs text-slate-400">{profile.chrome_profile || `Port ${profile.chrome_port}`}</p></div>
+            <div className="flex gap-3 text-xs text-slate-500"><span>{profile.x_handle || 'No X handle'}</span><span>·</span><span>{profile.discord_handle || 'No Discord'}</span></div>
+          </div>
+          {profile.notes && <p className="mt-4 rounded-xl bg-white/[0.025] px-3 py-2.5 text-xs leading-5 text-slate-500">{profile.notes}</p>}
+        </article>)}
+
+        {!loading && profiles.length === 0 && <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4"><EmptyState icon="users" title="Create your first farming profile" description="Separate identities help you operate campaigns cleanly and consistently." /></div>}
+        {loading && [1, 2, 3].map((item) => <div key={item} className="h-64 animate-pulse rounded-2xl border border-white/[0.05] bg-white/[0.02]" />)}
+      </section>
+
+      {showForm && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) closeForm(); }}>
+        <div role="dialog" aria-modal="true" aria-labelledby="profile-dialog-title" className="w-full max-w-xl animate-enter rounded-t-3xl border border-white/[0.08] bg-[#0d121c] shadow-2xl sm:rounded-3xl">
+          <div className="flex items-start justify-between border-b border-white/[0.06] px-6 py-5"><div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-400">Identity setup</p><h2 id="profile-dialog-title" className="mt-2 text-xl font-semibold tracking-tight text-white">Create farming profile</h2><p className="mt-1.5 text-xs text-slate-500">Configure a distinct environment for campaign execution.</p></div><button onClick={closeForm} className="rounded-xl p-2 text-slate-500 transition hover:bg-white/5 hover:text-white" aria-label="Close dialog"><Icon name="close" className="h-5 w-5" /></button></div>
+          <form onSubmit={handleSubmit} className="space-y-5 p-6">
+            <div className="grid gap-5 sm:grid-cols-2"><div><label htmlFor="profile-email" className="mb-2 block text-xs font-medium text-slate-300">Gmail address *</label><input id="profile-email" type="email" required value={formData.email} onChange={(event) => setFormData({ ...formData, email: event.target.value })} className={inputClass} placeholder="you@gmail.com" autoFocus /></div><div><label htmlFor="profile-wallet" className="mb-2 block text-xs font-medium text-slate-300">Wallet address *</label><input id="profile-wallet" required value={formData.wallet} onChange={(event) => setFormData({ ...formData, wallet: event.target.value })} className={inputClass} placeholder="0x…" /></div></div>
+            <div className="grid gap-5 sm:grid-cols-2"><div><label htmlFor="profile-chrome" className="mb-2 block text-xs font-medium text-slate-300">Chrome profile name</label><input id="profile-chrome" value={formData.chrome_profile} onChange={(event) => setFormData({ ...formData, chrome_profile: event.target.value })} className={inputClass} placeholder="Default / Profile 1" /></div><div><label htmlFor="profile-port" className="mb-2 block text-xs font-medium text-slate-300">Chrome debugging port *</label><input id="profile-port" type="number" min="1" required value={formData.chrome_port} onChange={(event) => setFormData({ ...formData, chrome_port: event.target.value })} className={inputClass} /></div></div>
+            <div className="grid gap-5 sm:grid-cols-2"><div><label htmlFor="profile-x" className="mb-2 block text-xs font-medium text-slate-300">X / Twitter handle</label><input id="profile-x" value={formData.x_handle} onChange={(event) => setFormData({ ...formData, x_handle: event.target.value })} className={inputClass} placeholder="@username" /></div><div><label htmlFor="profile-discord" className="mb-2 block text-xs font-medium text-slate-300">Discord handle</label><input id="profile-discord" value={formData.discord_handle} onChange={(event) => setFormData({ ...formData, discord_handle: event.target.value })} className={inputClass} placeholder="username#0000" /></div></div>
+            <div className="grid gap-5 sm:grid-cols-2"><div><label htmlFor="profile-ip" className="mb-2 block text-xs font-medium text-slate-300">IP / proxy label</label><input id="profile-ip" value={formData.ip_address} onChange={(event) => setFormData({ ...formData, ip_address: event.target.value })} className={inputClass} placeholder="Optional network label" /></div><div><label htmlFor="profile-location" className="mb-2 block text-xs font-medium text-slate-300">Location</label><input id="profile-location" value={formData.location} onChange={(event) => setFormData({ ...formData, location: event.target.value })} className={inputClass} placeholder="Region or workspace" /></div></div>
+            <div><label htmlFor="profile-notes" className="mb-2 block text-xs font-medium text-slate-300">Operational notes</label><textarea id="profile-notes" rows="2" value={formData.notes} onChange={(event) => setFormData({ ...formData, notes: event.target.value })} className={`${inputClass} resize-none`} placeholder="Wallet purpose, campaign assignments, reminders…" /></div>
+            <div className="flex flex-col-reverse gap-3 border-t border-white/[0.06] pt-5 sm:flex-row sm:justify-end"><button type="button" onClick={closeForm} className="rounded-xl border border-white/[0.08] px-5 py-3 text-sm font-medium text-slate-400 transition hover:bg-white/5 hover:text-white">Cancel</button><button type="submit" disabled={submitting} className="flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-60">{submitting ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Creating…</> : <><Icon name="plus" className="h-4 w-4" />Create profile</>}</button></div>
           </form>
-        )}
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {loading ? (
-            <p className="text-slate-400">Loading profiles...</p>
-          ) : (
-            profiles.map((profile) => (
-              <div key={profile.id} className="rounded-3xl border border-slate-700 bg-slate-900/80 p-4">
-                <h3 className="text-lg font-semibold text-white">Profile {profile.id}</h3>
-                <div className="mt-2 space-y-1 text-sm text-slate-400">
-                  <p>Email: {profile.email}</p>
-                  <p>Wallet: {profile.wallet.slice(0, 10)}...</p>
-                  <p>Chrome Port: {profile.chrome_port}</p>
-                  <p>IP Address: {profile.ip_address}</p>
-                  <p>Location: {profile.location}</p>
-                  {profile.notes && <p>Notes: {profile.notes}</p>}
-                </div>
-              </div>
-            ))
-          )}
         </div>
-      </div>
-    </div>
+      </div>}
+    </AppShell>
   );
 }
 
