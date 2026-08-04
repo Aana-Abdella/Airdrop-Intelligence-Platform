@@ -53,8 +53,11 @@ class ProfileBase(BaseModel):
     email: str
     wallet: str
     chrome_port: int
-    ip_address: str
-    location: str
+    chrome_profile: Optional[str] = None
+    x_handle: Optional[str] = None
+    discord_handle: Optional[str] = None
+    ip_address: str = ""
+    location: str = ""
     notes: Optional[str] = None
 
 
@@ -78,6 +81,7 @@ class AirdropCreate(BaseModel):
     project_name: str
     website: HttpUrl
     reward_type: str
+    reward_amount: Optional[str] = None
     deadline: datetime
     claim_link: Optional[HttpUrl] = None
     tasks: Optional[List[TaskItem]] = []
@@ -93,6 +97,7 @@ class AirdropResponse(BaseModel):
     project_name: str
     website: HttpUrl
     reward_type: str
+    reward_amount: Optional[str] = None
     deadline: datetime
     status: AirdropStatus
     claim_link: Optional[HttpUrl]
@@ -122,4 +127,3 @@ class NotificationLog(BaseModel):
     platform: str  # telegram, discord, x
     message: str
     timestamp: datetime
-

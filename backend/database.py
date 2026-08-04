@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -33,6 +33,9 @@ def create_tables() -> None:
                 email TEXT NOT NULL,
                 wallet TEXT NOT NULL,
                 chrome_port INTEGER NOT NULL,
+                chrome_profile TEXT,
+                x_handle TEXT,
+                discord_handle TEXT,
                 ip_address TEXT NOT NULL DEFAULT '',
                 location TEXT NOT NULL DEFAULT '',
                 notes TEXT,
@@ -50,6 +53,7 @@ def create_tables() -> None:
                 project_name TEXT NOT NULL,
                 website TEXT NOT NULL,
                 reward_type TEXT NOT NULL,
+                reward_amount TEXT,
                 deadline TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'NEW',
                 claim_link TEXT,
@@ -58,6 +62,7 @@ def create_tables() -> None:
             )
             """
         )
+        _migrate_airdrops_table(conn)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS tasks (
@@ -83,6 +88,7 @@ def create_tables() -> None:
             )
             """
         )
+        _migrate_progress_table(conn)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS notifications (
@@ -100,11 +106,59 @@ def create_tables() -> None:
 
 def _migrate_profiles_table(conn: sqlite3.Connection) -> None:
     columns = {row[1] for row in conn.execute("PRAGMA table_info(profiles)").fetchall()}
+    if "user_id" not in columns:
+        default_user_id = _get_default_user_id(conn)
+        conn.execute(f"ALTER TABLE profiles ADD COLUMN user_id INTEGER NOT NULL DEFAULT {default_user_id}")
+    if "notes" not in columns:
+        conn.execute("ALTER TABLE profiles ADD COLUMN notes TEXT")
+    if "created_at" not in columns:
+        conn.execute("ALTER TABLE profiles ADD COLUMN created_at TIMESTAMP")
+        conn.execute(
+            "UPDATE profiles SET created_at = ? WHERE created_at IS NULL",
+            (datetime.utcnow().isoformat(),),
+        )
     if "ip_address" not in columns:
         conn.execute("ALTER TABLE profiles ADD COLUMN ip_address TEXT NOT NULL DEFAULT ''")
     if "location" not in columns:
         conn.execute("ALTER TABLE profiles ADD COLUMN location TEXT NOT NULL DEFAULT ''")
+    if "chrome_profile" not in columns:
+        conn.execute("ALTER TABLE profiles ADD COLUMN chrome_profile TEXT")
+    if "x_handle" not in columns:
+        conn.execute("ALTER TABLE profiles ADD COLUMN x_handle TEXT")
+    if "discord_handle" not in columns:
+        conn.execute("ALTER TABLE profiles ADD COLUMN discord_handle TEXT")
     conn.commit()
+
+
+def _migrate_airdrops_table(conn: sqlite3.Connection) -> None:
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(airdrops)").fetchall()}
+    if "user_id" not in columns:
+        default_user_id = _get_default_user_id(conn)
+        conn.execute(f"ALTER TABLE airdrops ADD COLUMN user_id INTEGER NOT NULL DEFAULT {default_user_id}")
+    if "reward_amount" not in columns:
+        conn.execute("ALTER TABLE airdrops ADD COLUMN reward_amount TEXT")
+    conn.commit()
+
+
+def _migrate_progress_table(conn: sqlite3.Connection) -> None:
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(progress)").fetchall()}
+    if "timestamp" not in columns:
+        conn.execute("ALTER TABLE progress ADD COLUMN timestamp TIMESTAMP")
+        if "last_update" in columns:
+            conn.execute("UPDATE progress SET timestamp = last_update WHERE timestamp IS NULL")
+        conn.execute(
+            "UPDATE progress SET timestamp = ? WHERE timestamp IS NULL",
+            (datetime.utcnow().isoformat(),),
+        )
+    conn.commit()
+
+
+def _get_default_user_id(conn: sqlite3.Connection) -> int:
+    demo = conn.execute("SELECT id FROM users WHERE username = ?", ("demo",)).fetchone()
+    if demo:
+        return int(demo["id"])
+    first_user = conn.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
+    return int(first_user["id"]) if first_user else 0
 
 
 def create_user(username: str, hashed_password: str) -> int:
@@ -126,12 +180,13 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
 def insert_airdrop(user_id: int, airdrop: Dict[str, Any], tasks: List[Dict[str, Any]]) -> int:
     with get_db_connection() as conn:
         cursor = conn.execute(
-            "INSERT INTO airdrops (user_id, project_name, website, reward_type, deadline, status, claim_link) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO airdrops (user_id, project_name, website, reward_type, reward_amount, deadline, status, claim_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 user_id,
                 airdrop["project_name"],
                 airdrop["website"],
                 airdrop["reward_type"],
+                airdrop.get("reward_amount"),
                 airdrop["deadline"],
                 airdrop.get("status", "NEW"),
                 airdrop.get("claim_link"),
@@ -182,16 +237,21 @@ def get_profiles_by_user(user_id: int) -> List[Dict[str, Any]]:
 
 def insert_profile(user_id: int, profile: Dict[str, Any]) -> int:
     with get_db_connection() as conn:
+        created_at = datetime.utcnow().isoformat()
         cursor = conn.execute(
-            "INSERT INTO profiles (user_id, email, wallet, chrome_port, ip_address, location, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO profiles (user_id, email, wallet, chrome_port, chrome_profile, x_handle, discord_handle, ip_address, location, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 user_id,
                 profile["email"],
                 profile["wallet"],
                 profile["chrome_port"],
-                profile["ip_address"],
-                profile["location"],
+                profile.get("chrome_profile"),
+                profile.get("x_handle"),
+                profile.get("discord_handle"),
+                profile.get("ip_address", ""),
+                profile.get("location", ""),
                 profile.get("notes"),
+                created_at,
             ),
         )
         conn.commit()
@@ -234,7 +294,7 @@ def get_notifications_by_user(user_id: int) -> List[Dict[str, Any]]:
 
 
 def cleanup_old_records(hours: int) -> int:
-    cutoff = datetime.utcnow().replace(hour=datetime.utcnow().hour - hours)
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
     with get_db_connection() as conn:
         cursor = conn.execute(
             "DELETE FROM progress WHERE timestamp < ? AND status = 'DONE'",

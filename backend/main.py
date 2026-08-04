@@ -199,6 +199,7 @@ def create_airdrop(airdrop: AirdropCreate, current_user: User = Depends(get_curr
         "project_name": airdrop.project_name,
         "website": str(airdrop.website),
         "reward_type": airdrop.reward_type,
+        "reward_amount": airdrop.reward_amount,
         "deadline": airdrop.deadline.isoformat(),
         "claim_link": str(airdrop.claim_link) if airdrop.claim_link else None,
         "status": AirdropStatus.NEW,
