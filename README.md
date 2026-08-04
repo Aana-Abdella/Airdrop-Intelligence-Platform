@@ -83,6 +83,13 @@ frontend/
    npm run dev
    ```
 
+By default, the frontend connects to `http://localhost:8000`. For another
+backend origin, copy `frontend/.env.example` to `frontend/.env` and set:
+
+```bash
+VITE_API_URL=https://api.example.com
+```
+
 ## Next upgrade milestones
 
 1. Replace SQLite with PostgreSQL and Alembic migrations
