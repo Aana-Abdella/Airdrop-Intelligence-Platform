@@ -2,7 +2,11 @@ import os
 from typing import Dict, Optional
 
 import httpx
-import tweepy
+
+try:
+    import tweepy
+except ImportError:  # X notifications are optional; auth must not depend on them.
+    tweepy = None
 
 from .config import DISCORD_WEBHOOK_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET, X_API_KEY, X_API_SECRET, X_BEARER_TOKEN
 
@@ -33,7 +37,7 @@ async def send_telegram_notification(message: str) -> None:
 
 
 def send_x_notification(message: str) -> None:
-    if not all([X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET]):
+    if tweepy is None or not all([X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET]):
         return
 
     try:
