@@ -10,7 +10,7 @@ WEIGHTS = {
     "Activity": 0.20,
     "Difficulty": 0.10,
     "Cost": 0.10,
-    "Reward": 0.15,
+    "Reward": 0.25,
     "Risk": 0.10,
     "History": 0.05,
 }
