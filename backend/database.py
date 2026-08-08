@@ -266,6 +266,28 @@ def get_progress_by_airdrop(airdrop_id: int) -> List[Dict[str, Any]]:
         ).fetchall()]
 
 
+def get_progress_by_user(user_id: int) -> List[Dict[str, Any]]:
+    """Return progress owned by a user, including its task and project context."""
+    with get_db_connection() as conn:
+        return [dict(row) for row in conn.execute(
+            """
+            SELECT
+                p.*,
+                t.airdrop_id,
+                t.task_name,
+                t.task_type,
+                a.project_name
+            FROM progress p
+            JOIN profiles pr ON p.profile_id = pr.id
+            JOIN tasks t ON p.task_id = t.id
+            JOIN airdrops a ON t.airdrop_id = a.id
+            WHERE pr.user_id = ? AND a.user_id = ?
+            ORDER BY p.timestamp DESC
+            """,
+            (user_id, user_id),
+        ).fetchall()]
+
+
 def insert_progress(profile_id: int, task_id: int, status: str, screenshot_path: Optional[str] = None) -> int:
     with get_db_connection() as conn:
         cursor = conn.execute(

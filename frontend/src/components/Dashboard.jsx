@@ -16,6 +16,11 @@ function SectionHeader({ icon, title, description, badge }) {
   return <div className="mb-5 flex items-start justify-between gap-3"><div className="flex gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-indigo-500/10 text-indigo-300"><Icon name={icon} className="h-[18px] w-[18px]" /></span><div><h2 className="text-sm font-semibold text-white">{title}</h2><p className="mt-1 text-xs text-slate-500">{description}</p></div></div>{badge !== undefined && <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-slate-400">{badge}</span>}</div>;
 }
 
+function formatWalletMetric(value, suffix = '') {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? `${numericValue.toFixed(2)}${suffix}` : value;
+}
+
 function Dashboard({ user, onLogout }) {
   const [airdrops, setAirdrops] = useState({});
   const [dashboard, setDashboard] = useState(null);
@@ -65,7 +70,7 @@ function Dashboard({ user, onLogout }) {
 
       <div className="mt-5 grid gap-5 xl:grid-cols-3">
         <section className={`${cardClass} p-5 sm:p-6`}><SectionHeader icon="wallet" title="Wallet overview" description="Balances and on-chain activity" />
-          <div className="space-y-2.5">{(dashboard?.wallets || []).map((item) => <div key={item.chain} className="flex items-center gap-3 rounded-xl bg-white/[0.025] p-3.5"><span className="grid h-9 w-9 place-items-center rounded-full bg-cyan-500/10 text-xs font-semibold uppercase text-cyan-300">{item.chain.slice(0, 2)}</span><div className="min-w-0 flex-1"><p className="text-sm font-medium text-slate-200">{item.chain}</p><p className="mt-0.5 text-[11px] text-slate-600">{item.activity_count} activities · {Number(item.gas_spent).toFixed(2)} gas</p></div><p className="text-sm font-semibold text-white">{Number(item.balance).toFixed(2)}</p></div>)}{!loading && !(dashboard?.wallets || []).length && <EmptyState icon="wallet" title="No wallet data" />}</div>
+          <div className="space-y-2.5">{(dashboard?.wallets || []).map((item, index) => <div key={`${item.chain}-${index}`} className="flex items-center gap-3 rounded-xl bg-white/[0.025] p-3.5"><span className="grid h-9 w-9 place-items-center rounded-full bg-cyan-500/10 text-xs font-semibold uppercase text-cyan-300">{item.chain.slice(0, 2)}</span><div className="min-w-0 flex-1"><p className="text-sm font-medium text-slate-200">{item.chain}</p><p className="mt-0.5 text-[11px] text-slate-600">{item.activity_count} activities · {formatWalletMetric(item.gas_spent, ' gas')}</p></div><p className="text-sm font-semibold text-white">{formatWalletMetric(item.balance)}</p></div>)}{!loading && !(dashboard?.wallets || []).length && <EmptyState icon="wallet" title="No wallet data" />}</div>
         </section>
 
         <section className={`${cardClass} p-5 sm:p-6`}><SectionHeader icon="target" title="Today’s plan" description="Tasks ranked by execution priority" />

@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, List
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -10,13 +10,7 @@ from . import database, notifier, status_engine
 from .auth import authenticate_user, create_access_token, get_current_user, get_password_hash
 from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS, SCREENSHOT_BASE
 from .models import AirdropCreate, AirdropResponse, AirdropStatus, ProfileCreate, Profile, ProgressStatus, StepExecution, Token, User, UserCreate
-from .profile_manager import PROFILE_TEMPLATES, capture_screenshot
-from .services.claims import get_claim_queue
-from .services.discovery import fetch_discovery_projects
 from .services.intelligence import build_project_score, recommend_action
-from .services.planner import get_daily_plan
-from .services.scheduler import get_scheduled_tasks
-from .services.wallets import get_wallet_summary
 
 app = FastAPI(
     title="Airdrop Workflow System",
@@ -34,21 +28,6 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event() -> None:
     database.create_tables()
-    # Create default profiles for demo
-    users = database.get_user_by_username("demo")
-    if users:
-        user_id = users["id"]
-        profiles = database.get_profiles_by_user(user_id)
-        if not profiles:
-            for template in PROFILE_TEMPLATES:
-                database.insert_profile(user_id, {
-                    "email": template["email"],
-                    "wallet": template["wallet"],
-                    "chrome_port": template["chrome_port"],
-                    "ip_address": template["ip_address"],
-                    "location": template["location"],
-                    "notes": f"Profile {template['id']} — {template['location']}",
-                })
     app.state.status_task = asyncio.create_task(status_engine.schedule_status_updates())
     app.state.cleanup_task = asyncio.create_task(schedule_cleanup())
 
@@ -76,6 +55,11 @@ def _group_airdrops_by_status(airdrops: List[dict]) -> Dict[str, List[dict]]:
         status_name = airdrop.get("status", AirdropStatus.NEW)
         grouped.setdefault(status_name, []).append(airdrop)
     return grouped
+
+
+def _parse_deadline(value: object) -> datetime:
+    deadline = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return deadline.replace(tzinfo=None)
 
 
 @app.post("/auth/register", response_model=User)
@@ -118,77 +102,101 @@ def get_airdrops(current_user: User = Depends(get_current_user)) -> Dict[str, Li
 def get_dashboard(current_user: User = Depends(get_current_user)) -> dict:
     airdrops = database.get_airdrops_by_user(current_user.id)
     profiles = database.get_profiles_by_user(current_user.id)
+    progress = database.get_progress_by_user(current_user.id)
+    progress_by_airdrop = {}
+    activity_by_profile = {}
+    for item in progress:
+        progress_by_airdrop.setdefault(item["airdrop_id"], []).append(item)
+        activity_by_profile[item["profile_id"]] = activity_by_profile.get(item["profile_id"], 0) + 1
+
     recommendations = []
     for airdrop in airdrops[:5]:
+        task_count = len(airdrop.get("tasks", []))
+        completed_count = sum(
+            item["status"] == ProgressStatus.DONE.value
+            for item in progress_by_airdrop.get(airdrop["id"], [])
+        )
+        deadline = _parse_deadline(airdrop["deadline"])
+        days_remaining = max((deadline - datetime.utcnow()).days, 0)
+        completion = int((completed_count / task_count) * 100) if task_count else 0
+        activity = min(100, 35 + task_count * 10 + completion // 2)
+        difficulty = min(100, task_count * 15)
+        urgency = max(0, 100 - min(days_remaining, 100))
+        risk = min(100, 15 + difficulty // 3 + (20 if not airdrop.get("claim_link") else 0))
         score = build_project_score(
-            funding=70,
-            investors=65,
-            community=75,
-            activity=60,
-            difficulty=40,
-            cost=20,
-            reward=85,
-            risk=25,
-            history=55,
+            funding=0,
+            investors=0,
+            community=0,
+            activity=activity,
+            difficulty=difficulty,
+            cost=0,
+            reward=urgency,
+            risk=risk,
+            history=completion,
         )
         recommendations.append(
             {
                 "project_name": airdrop["project_name"],
                 "score": score["total"],
-                "action": recommend_action(int(score["total"]), 25, 20),
+                "action": recommend_action(int(score["total"]), risk, 0),
             }
         )
+
+    claims = []
+    planner = []
+    for airdrop in airdrops:
+        deadline = str(airdrop["deadline"])
+        if airdrop["status"] == AirdropStatus.CLAIMABLE.value or airdrop.get("claim_link"):
+            claims.append({
+                "project": airdrop["project_name"],
+                "snapshot_date": str(airdrop["created_at"])[:10],
+                "claim_date": deadline[:10],
+                "status": "Claimable" if airdrop["status"] == AirdropStatus.CLAIMABLE.value else "Monitoring",
+                "reminder": "Claim link available" if airdrop.get("claim_link") else "Monitor before deadline",
+            })
+        if airdrop["status"] not in {AirdropStatus.COMPLETED.value, AirdropStatus.ENDED.value}:
+            remaining = [
+                task for task in airdrop.get("tasks", [])
+                if not any(
+                    item["task_id"] == task["id"] and item["status"] == ProgressStatus.DONE.value
+                    for item in progress_by_airdrop.get(airdrop["id"], [])
+                )
+            ]
+            for task in remaining[:3]:
+                planner.append({
+                    "title": f'{airdrop["project_name"]}: {task["task_name"]}',
+                    "estimate": "Unestimated",
+                    "cost": "Not recorded",
+                    "priority": "High" if airdrop["status"] == AirdropStatus.CLAIMABLE.value else "Normal",
+                })
+
     return {
-        "active_projects": len(airdrops),
+        "active_projects": sum(a["status"] not in {AirdropStatus.COMPLETED.value, AirdropStatus.ENDED.value} for a in airdrops),
         "profiles": len(profiles),
         "recommendations": recommendations,
         "latest_airdrops": airdrops[:3],
-        "claims": [
-            {
-                "project": item.project,
-                "snapshot_date": item.snapshot_date,
-                "claim_date": item.claim_date,
-                "status": item.status,
-                "reminder": item.reminder,
-            }
-            for item in get_claim_queue()
-        ],
+        "claims": claims,
         "wallets": [
             {
-                "chain": item.chain,
-                "balance": item.balance,
-                "gas_spent": item.gas_spent,
-                "activity_count": item.activity_count,
+                "chain": profile.get("location") or "Saved wallet",
+                "balance": "Not connected",
+                "gas_spent": "Not tracked",
+                "activity_count": activity_by_profile.get(profile["id"], 0),
             }
-            for item in get_wallet_summary()
+            for profile in profiles
         ],
-        "scheduler": [
-            {
-                "name": item.name,
-                "interval_minutes": item.interval_minutes,
-                "status": item.status,
-            }
-            for item in get_scheduled_tasks()
-        ],
-        "planner": [
-            {
-                "title": item.title,
-                "estimate": item.estimate,
-                "cost": item.cost,
-                "priority": item.priority,
-            }
-            for item in get_daily_plan()
-        ],
+        "scheduler": [],
+        "planner": planner[:8],
         "discovery_projects": [
             {
-                "name": project.name,
-                "source": project.source,
-                "website": project.website,
-                "reward_type": project.reward_type,
-                "score": project.score,
-                "description": project.description,
+                "name": airdrop["project_name"],
+                "source": "Tracked",
+                "website": airdrop["website"],
+                "reward_type": airdrop["reward_type"],
+                "score": next((item["score"] for item in recommendations if item["project_name"] == airdrop["project_name"]), 0),
+                "description": f'{len(airdrop.get("tasks", []))} tracked task(s); status {airdrop["status"].lower()}.',
             }
-            for project in fetch_discovery_projects()
+            for airdrop in airdrops[:5]
         ],
     }
 
