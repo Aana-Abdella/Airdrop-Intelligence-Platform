@@ -32,7 +32,7 @@ The backend currently keeps configuration as Python constants in `backend/config
 - Protected routes resolve the current user from the bearer token.
 - Profile and campaign lists are user-scoped.
 - Campaign status changes check campaign ownership.
-- `/step` checks profile ownership, but the route currently has a model/handler mismatch and should not be treated as a production evidence endpoint.
+- `/step` checks profile and campaign ownership and verifies that the task belongs to the submitted campaign before accepting evidence.
 
 ### Deployment implications
 
@@ -50,7 +50,7 @@ The default `backend/aws.db` contains usernames, profile metadata, campaign data
 - Apply filesystem permissions appropriate to the operator and service account.
 - Back up and transfer them as sensitive application data.
 - Review `CLEANUP_HOURS` before using the cleanup task as a retention policy.
-- Remember that cleanup removes eligible `DONE` progress rows but does not currently delete corresponding screenshot files.
+- Cleanup removes eligible `DONE` progress rows and their corresponding in-root screenshot files; if a file cannot be removed, its progress row is retained for retry.
 - Do not attach the database or raw screenshots to issues.
 
 ## Third-party notifications

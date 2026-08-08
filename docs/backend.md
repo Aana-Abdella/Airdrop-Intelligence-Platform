@@ -28,12 +28,12 @@ All routes except registration and login require `Authorization: Bearer <token>`
 | `PATCH` | `/airdrops/{airdrop_id}/status` | Manually update an owned campaign status |
 | `GET` | `/profiles` | List current-user profiles |
 | `POST` | `/profiles` | Create a current-user profile |
-| `POST` | `/step` | Intended evidence/progress submission; currently incomplete |
+| `POST` | `/step` | Validate owned campaign/profile/task and submit image evidence/progress |
 | `GET` | `/notifications` | List notification rows belonging to current-user campaigns |
 | `POST` | `/refresh` | Evaluate current-user campaign statuses |
 
-> [!CAUTION]
-> `StepExecution` does not currently define the `airdrop_id` read by the `/step` handler. The route is not used by the frontend and should be treated as an incomplete API contract until model, ownership, task relationship, and tests are aligned.
+> [!NOTE]
+> The frontend does not currently expose a progress form, but the backend contract is validated and covered by route-level tests. The request includes `airdrop_id`, `profile_id`, `task_id`, and base64-encoded screenshot data.
 
 ## Persistence
 
@@ -83,7 +83,7 @@ The main dashboard combines current-user records with deterministic logic in `ba
 
 `backend/notifier.py` optionally sends status messages to Discord webhooks, Telegram Bot API, and X via Tweepy. Missing values disable an adapter; errors are swallowed. Current sends do not insert rows in `notifications`.
 
-A daily cleanup task removes old `DONE` progress rows using `CLEANUP_HOURS`. It does not remove corresponding screenshot files.
+A daily cleanup task removes old `DONE` progress rows using `CLEANUP_HOURS` and removes their corresponding in-root screenshot files when safe.
 
 ## Testing
 

@@ -6,11 +6,11 @@ This page records opportunities—not release commitments. An item is not shippe
 
 ## Near-term foundations
 
-- [ ] Align the `/step` request model, campaign/task ownership validation, and route tests.
+- [x] Align the `/step` request model, campaign/task ownership validation, and route tests.
 - [ ] Add frontend controls for API task definitions and progress/evidence only after that contract is safe.
 - [ ] Connect an intentional status-refresh UX or complete the per-user background refresh design.
 - [ ] Move backend secrets out of Python constants into a documented environment/settings layer.
-- [ ] Add screenshot cleanup, size/type limits, and a documented retention policy.
+- [x] Add screenshot cleanup, size/type limits, and a documented retention policy.
 - [ ] Narrow CORS and document supported deployment origins.
 
 ## Product quality
