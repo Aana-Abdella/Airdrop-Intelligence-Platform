@@ -6,9 +6,9 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 
-from . import database, notifier, status_engine
+from . import database, evidence, notifier, status_engine
 from .auth import authenticate_user, create_access_token, get_current_user, get_password_hash
-from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS, SCREENSHOT_BASE
+from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS
 from .models import AirdropCreate, AirdropResponse, AirdropStatus, ProfileCreate, Profile, ProgressStatus, StepExecution, Token, User, UserCreate
 from .services.intelligence import build_project_score, recommend_action
 
@@ -45,7 +45,7 @@ async def shutdown_event() -> None:
 
 async def schedule_cleanup() -> None:
     while True:
-        database.cleanup_old_records(CLEANUP_HOURS)
+        evidence.cleanup_expired_progress(CLEANUP_HOURS)
         await asyncio.sleep(86400)  # daily
 
 
@@ -248,26 +248,41 @@ def create_profile(profile: ProfileCreate, current_user: User = Depends(get_curr
 
 @app.post("/step")
 def execute_step(execution: StepExecution, current_user: User = Depends(get_current_user)) -> dict:
-    # Validate profile belongs to user
-    profiles = database.get_profiles_by_user(current_user.id)
-    profile_ids = {p["id"] for p in profiles}
-    if execution.profile_id not in profile_ids:
-        raise HTTPException(status_code=403, detail="Profile not owned by user")
+    profile = database.get_profile_by_id(execution.profile_id)
+    if profile is None or profile["user_id"] != current_user.id:
+        raise HTTPException(status_code=404, detail="Profile not found")
 
-    # Save screenshot
-    screenshot_dir = SCREENSHOT_BASE / str(execution.airdrop_id) / str(execution.profile_id)
-    screenshot_dir.mkdir(parents=True, exist_ok=True)
-    screenshot_path = screenshot_dir / f"{int(datetime.utcnow().timestamp())}.png"
-    with open(screenshot_path, "wb") as f:
-        f.write(execution.screenshot)
-
-    # Insert progress
-    progress_id = database.insert_progress(execution.profile_id, execution.task_id, "DONE", str(screenshot_path))
-
-    # Notify
     airdrop = database.get_airdrop_by_id(execution.airdrop_id)
-    if airdrop:
-        asyncio.create_task(notifier.notify_airdrop_update(airdrop, str(screenshot_path)))
+    if airdrop is None or airdrop["user_id"] != current_user.id:
+        raise HTTPException(status_code=404, detail="Airdrop not found")
+
+    task = database.get_task_by_id(execution.task_id)
+    if task is None or task["airdrop_id"] != execution.airdrop_id:
+        raise HTTPException(status_code=404, detail="Task not found for airdrop")
+
+    try:
+        image, extension = evidence.decode_screenshot(execution.screenshot)
+    except evidence.EvidenceValidationError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+    screenshot_path = evidence.save_screenshot(
+        image,
+        extension,
+        execution.airdrop_id,
+        execution.profile_id,
+    )
+    try:
+        progress_id = database.insert_progress(
+            execution.profile_id,
+            execution.task_id,
+            ProgressStatus.DONE.value,
+            str(screenshot_path),
+        )
+    except Exception:
+        evidence.discard_screenshot(screenshot_path)
+        raise
+
+    asyncio.create_task(notifier.notify_airdrop_update(airdrop, str(screenshot_path)))
 
     return {"progress_id": progress_id, "screenshot_path": str(screenshot_path)}
 

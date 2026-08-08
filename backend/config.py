@@ -26,6 +26,7 @@ DB_PATH = Path(__file__).parent / "aws.db"
 # Screenshot storage
 SCREENSHOT_BASE = Path(__file__).parent / "screenshots"
 SCREENSHOT_BASE.mkdir(parents=True, exist_ok=True)
+MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024  # 5 MiB decoded image limit
 
 # Cleanup settings
 CLEANUP_HOURS = 72

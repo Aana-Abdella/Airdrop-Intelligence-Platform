@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, HttpUrl, validator
+from pydantic import BaseModel, Field, HttpUrl, validator
 
 
 class AirdropStatus(str, Enum):
@@ -115,10 +115,13 @@ class ProgressRecord(BaseModel):
 
 
 class StepExecution(BaseModel):
-    profile_id: int
-    task_id: int
-    screenshot: bytes  # base64 or file
-    message: str
+    profile_id: int = Field(gt=0)
+    airdrop_id: int = Field(gt=0)
+    task_id: int = Field(gt=0)
+    screenshot: str = Field(
+        min_length=1,
+        description="Base64-encoded PNG, JPEG, or WebP evidence; a matching data URL is also accepted.",
+    )
 
 
 class NotificationLog(BaseModel):

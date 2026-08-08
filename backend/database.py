@@ -235,6 +235,18 @@ def get_profiles_by_user(user_id: int) -> List[Dict[str, Any]]:
         return [dict(row) for row in conn.execute("SELECT * FROM profiles WHERE user_id = ? ORDER BY created_at", (user_id,)).fetchall()]
 
 
+def get_profile_by_id(profile_id: int) -> Optional[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        row = conn.execute("SELECT * FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def get_task_by_id(task_id: int) -> Optional[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        return dict(row) if row else None
+
+
 def insert_profile(user_id: int, profile: Dict[str, Any]) -> int:
     with get_db_connection() as conn:
         created_at = datetime.utcnow().isoformat()
@@ -315,12 +327,23 @@ def get_notifications_by_user(user_id: int) -> List[Dict[str, Any]]:
         ).fetchall()]
 
 
-def cleanup_old_records(hours: int) -> int:
+def get_expired_progress_records(hours: int) -> List[Dict[str, Any]]:
     cutoff = datetime.utcnow() - timedelta(hours=hours)
     with get_db_connection() as conn:
-        cursor = conn.execute(
-            "DELETE FROM progress WHERE timestamp < ? AND status = 'DONE'",
+        return [dict(row) for row in conn.execute(
+            "SELECT id, screenshot_path FROM progress WHERE timestamp < ? AND status = 'DONE'",
             (cutoff.isoformat(),),
+        ).fetchall()]
+
+
+def delete_progress_records(progress_ids: List[int]) -> int:
+    if not progress_ids:
+        return 0
+    placeholders = ",".join("?" for _ in progress_ids)
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            f"DELETE FROM progress WHERE id IN ({placeholders})",
+            tuple(progress_ids),
         )
         deleted = cursor.rowcount
         conn.commit()
