@@ -1,0 +1,40 @@
+{
+  "name": "airdrop-intelligence-discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Official Discord integration for Airdrop-Intelligence-Platform",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "register-commands": "tsx scripts/register-commands.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "keywords": [
+    "discord",
+    "airdrop",
+    "discord-bot"
+  ],
+  "author": "Airdrop-Intelligence-Platform contributors",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.27.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.1",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^9.1.2",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.11",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.66.0",
+    "vitest": "^2.1.9"
+  }
+}
