@@ -4,7 +4,7 @@
   "private": true,
   "description": "Official Discord integration for Airdrop-Intelligence-Platform",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
@@ -12,7 +12,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "register-commands": "tsx scripts/register-commands.ts",
-    "start": "node dist/index.js",
+    "start": "node dist/src/index.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -35,6 +35,6 @@
     "tsx": "^4.23.11",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.66.0",
-    "vitest": "^2.1.9"
+    "vitest": "^4.1.10"
   }
 }
