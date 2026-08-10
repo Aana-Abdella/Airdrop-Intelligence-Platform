@@ -9,6 +9,7 @@ from .config import DB_PATH
 def get_db_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -101,6 +102,7 @@ def create_tables() -> None:
             )
             """
         )
+        _create_indexes(conn)
         conn.commit()
 
 
@@ -127,7 +129,22 @@ def _migrate_profiles_table(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE profiles ADD COLUMN x_handle TEXT")
     if "discord_handle" not in columns:
         conn.execute("ALTER TABLE profiles ADD COLUMN discord_handle TEXT")
+    if "label" not in columns:
+        conn.execute("ALTER TABLE profiles ADD COLUMN label TEXT")
     conn.commit()
+
+
+def _create_indexes(conn: sqlite3.Connection) -> None:
+    indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_airdrops_user_status ON airdrops(user_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_tasks_airdrop_id ON tasks(airdrop_id)",
+        "CREATE INDEX IF NOT EXISTS idx_progress_profile_task ON progress(profile_id, task_id)",
+        "CREATE INDEX IF NOT EXISTS idx_progress_timestamp ON progress(timestamp)",
+        "CREATE INDEX IF NOT EXISTS idx_notifications_airdrop_timestamp ON notifications(airdrop_id, timestamp)",
+    ]
+    for statement in indexes:
+        conn.execute(statement)
 
 
 def _migrate_airdrops_table(conn: sqlite3.Connection) -> None:
@@ -251,7 +268,7 @@ def insert_profile(user_id: int, profile: Dict[str, Any]) -> int:
     with get_db_connection() as conn:
         created_at = datetime.utcnow().isoformat()
         cursor = conn.execute(
-            "INSERT INTO profiles (user_id, email, wallet, chrome_port, chrome_profile, x_handle, discord_handle, ip_address, location, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO profiles (user_id, email, wallet, chrome_port, chrome_profile, x_handle, discord_handle, ip_address, location, notes, label, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 user_id,
                 profile["email"],
@@ -263,11 +280,25 @@ def insert_profile(user_id: int, profile: Dict[str, Any]) -> int:
                 profile.get("ip_address", ""),
                 profile.get("location", ""),
                 profile.get("notes"),
+                profile.get("label"),
                 created_at,
             ),
         )
         conn.commit()
         return cursor.lastrowid
+
+
+def delete_profile_if_unused(profile_id: int) -> bool:
+    """Delete a profile only when no progress/evidence records depend on it."""
+    with get_db_connection() as conn:
+        progress = conn.execute(
+            "SELECT 1 FROM progress WHERE profile_id = ? LIMIT 1", (profile_id,)
+        ).fetchone()
+        if progress:
+            return False
+        cursor = conn.execute("DELETE FROM profiles WHERE id = ?", (profile_id,))
+        conn.commit()
+        return cursor.rowcount == 1
 
 
 def get_progress_by_airdrop(airdrop_id: int) -> List[Dict[str, Any]]:
@@ -298,6 +329,40 @@ def get_progress_by_user(user_id: int) -> List[Dict[str, Any]]:
             """,
             (user_id, user_id),
         ).fetchall()]
+
+
+def get_tasks_by_user(user_id: int) -> List[Dict[str, Any]]:
+    """Return each campaign task with its latest user-owned progress record."""
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                t.id,
+                t.airdrop_id,
+                t.task_name,
+                t.task_type,
+                a.project_name,
+                a.status AS campaign_status,
+                latest.status,
+                latest.timestamp,
+                latest.profile_id,
+                latest.screenshot_path
+            FROM tasks t
+            JOIN airdrops a ON t.airdrop_id = a.id
+            LEFT JOIN progress latest ON latest.id = (
+                SELECT p.id
+                FROM progress p
+                JOIN profiles pr ON p.profile_id = pr.id
+                WHERE p.task_id = t.id AND pr.user_id = ?
+                ORDER BY p.timestamp DESC, p.id DESC
+                LIMIT 1
+            )
+            WHERE a.user_id = ?
+            ORDER BY a.deadline ASC, t.id ASC
+            """,
+            (user_id, user_id),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
 
 def insert_progress(profile_id: int, task_id: int, status: str, screenshot_path: Optional[str] = None) -> int:

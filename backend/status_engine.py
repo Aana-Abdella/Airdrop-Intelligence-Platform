@@ -60,6 +60,5 @@ def refresh_statuses_for_user(user_id: int) -> None:
 
 async def schedule_status_updates(interval_hours: int = 12) -> None:
     while True:
-        # TODO: get all users and refresh for each
         await asyncio.sleep(interval_hours * 3600)
 

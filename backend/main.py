@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Dict, List
 
@@ -8,39 +9,38 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from . import database, evidence, notifier, status_engine
 from .auth import authenticate_user, create_access_token, get_current_user, get_password_hash
-from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS
+from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS, CORS_ORIGINS, ENVIRONMENT, SECRET_KEY
 from .models import AirdropCreate, AirdropResponse, AirdropStatus, ProfileCreate, Profile, ProgressStatus, StepExecution, Token, User, UserCreate
 from .services.intelligence import build_project_score, recommend_action
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    if ENVIRONMENT == "production" and SECRET_KEY == "development-only-change-me":
+        raise RuntimeError("AIP_SECRET_KEY must be configured in production")
+    database.create_tables()
+    application.state.status_task = asyncio.create_task(status_engine.schedule_status_updates())
+    application.state.cleanup_task = asyncio.create_task(schedule_cleanup())
+    yield
+    for task in [application.state.status_task, application.state.cleanup_task]:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
 
 app = FastAPI(
     title="Airdrop Workflow System",
     description="Secure workflow management for cryptocurrency airdrops with progress tracking and safe reporting.",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    database.create_tables()
-    app.state.status_task = asyncio.create_task(status_engine.schedule_status_updates())
-    app.state.cleanup_task = asyncio.create_task(schedule_cleanup())
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    for task in [getattr(app.state, "status_task", None), getattr(app.state, "cleanup_task", None)]:
-        if task:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
 
 
 async def schedule_cleanup() -> None:
@@ -60,6 +60,11 @@ def _group_airdrops_by_status(airdrops: List[dict]) -> Dict[str, List[dict]]:
 def _parse_deadline(value: object) -> datetime:
     deadline = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     return deadline.replace(tzinfo=None)
+
+
+@app.get("/health", tags=["system"])
+def health() -> dict:
+    return {"status": "ok", "database": "sqlite", "environment": ENVIRONMENT}
 
 
 @app.post("/auth/register", response_model=User)
@@ -246,6 +251,23 @@ def create_profile(profile: ProfileCreate, current_user: User = Depends(get_curr
     return Profile(id=profile_id, user_id=current_user.id, **profile.dict(), created_at=datetime.utcnow())
 
 
+@app.delete("/profiles/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_profile(profile_id: int, current_user: User = Depends(get_current_user)) -> None:
+    profile = database.get_profile_by_id(profile_id)
+    if profile is None or profile["user_id"] != current_user.id:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    if not database.delete_profile_if_unused(profile_id):
+        raise HTTPException(
+            status_code=409,
+            detail="Profiles with task history cannot be removed because their evidence must remain attributable.",
+        )
+
+
+@app.get("/tasks")
+def get_tasks(current_user: User = Depends(get_current_user)) -> List[dict]:
+    return database.get_tasks_by_user(current_user.id)
+
+
 @app.post("/step")
 def execute_step(execution: StepExecution, current_user: User = Depends(get_current_user)) -> dict:
     profile = database.get_profile_by_id(execution.profile_id)
@@ -290,6 +312,45 @@ def execute_step(execution: StepExecution, current_user: User = Depends(get_curr
 @app.get("/notifications")
 def get_notifications(current_user: User = Depends(get_current_user)) -> List[dict]:
     return database.get_notifications_by_user(current_user.id)
+
+
+@app.get("/security/status")
+def get_security_status(current_user: User = Depends(get_current_user)) -> dict:
+    default_secret = SECRET_KEY == "development-only-change-me"
+    checks = [
+        {
+            "id": "jwt-secret",
+            "label": "JWT signing secret",
+            "status": "warning" if default_secret else "pass",
+            "detail": "Set AIP_SECRET_KEY before deployment." if default_secret else "Configured through the runtime environment.",
+        },
+        {
+            "id": "cors",
+            "label": "Browser origin policy",
+            "status": "warning" if "*" in CORS_ORIGINS else "pass",
+            "detail": "Wildcard browser access is enabled." if "*" in CORS_ORIGINS else f"Restricted to {len(CORS_ORIGINS)} configured origin(s).",
+        },
+        {
+            "id": "wallet-custody",
+            "label": "Wallet custody",
+            "status": "pass",
+            "detail": "The API stores public address metadata only and rejects private-key-shaped input.",
+        },
+        {
+            "id": "evidence-retention",
+            "label": "Evidence retention",
+            "status": "pass",
+            "detail": f"Completed-task screenshots are scheduled for cleanup after {CLEANUP_HOURS} hours.",
+        },
+    ]
+    return {
+        "environment": ENVIRONMENT,
+        "checks": checks,
+        "summary": {
+            "passed": sum(item["status"] == "pass" for item in checks),
+            "warnings": sum(item["status"] == "warning" for item in checks),
+        },
+    }
 
 
 @app.post("/refresh")
