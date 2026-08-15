@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Dict, List
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -229,13 +229,18 @@ def create_airdrop(airdrop: AirdropCreate, current_user: User = Depends(get_curr
 
 
 @app.patch("/airdrops/{airdrop_id}/status")
-def patch_airdrop_status(airdrop_id: int, status: AirdropStatus, current_user: User = Depends(get_current_user)) -> dict:
+def patch_airdrop_status(
+    airdrop_id: int,
+    status: AirdropStatus,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+) -> dict:
     airdrop = database.get_airdrop_by_id(airdrop_id)
     if airdrop is None or airdrop["user_id"] != current_user.id:
         raise HTTPException(status_code=404, detail="Airdrop not found")
     database.update_airdrop_status(airdrop_id, status.value)
     airdrop["status"] = status.value
-    asyncio.create_task(notifier.notify_airdrop_update(airdrop))
+    background_tasks.add_task(notifier.notify_airdrop_update, airdrop)
     return airdrop
 
 
@@ -269,7 +274,11 @@ def get_tasks(current_user: User = Depends(get_current_user)) -> List[dict]:
 
 
 @app.post("/step")
-def execute_step(execution: StepExecution, current_user: User = Depends(get_current_user)) -> dict:
+def execute_step(
+    execution: StepExecution,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+) -> dict:
     profile = database.get_profile_by_id(execution.profile_id)
     if profile is None or profile["user_id"] != current_user.id:
         raise HTTPException(status_code=404, detail="Profile not found")
@@ -304,7 +313,7 @@ def execute_step(execution: StepExecution, current_user: User = Depends(get_curr
         evidence.discard_screenshot(screenshot_path)
         raise
 
-    asyncio.create_task(notifier.notify_airdrop_update(airdrop, str(screenshot_path)))
+    background_tasks.add_task(notifier.notify_airdrop_update, airdrop, str(screenshot_path))
 
     return {"progress_id": progress_id, "screenshot_path": str(screenshot_path)}
 
@@ -354,6 +363,11 @@ def get_security_status(current_user: User = Depends(get_current_user)) -> dict:
 
 
 @app.post("/refresh")
-def refresh_statuses(current_user: User = Depends(get_current_user)) -> Dict[str, str]:
-    status_engine.refresh_statuses_for_user(current_user.id)
-    return {"detail": "Status refresh started"}
+def refresh_statuses(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, str]:
+    changed_airdrops = status_engine.refresh_statuses_for_user(current_user.id)
+    for airdrop in changed_airdrops:
+        background_tasks.add_task(notifier.notify_airdrop_update, airdrop)
+    return {"detail": f"Status refresh completed; {len(changed_airdrops)} campaign(s) updated"}

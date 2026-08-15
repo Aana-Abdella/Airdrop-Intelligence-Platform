@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from . import database, notifier
+from . import database
 from .models import AirdropStatus
 
 
@@ -49,13 +49,15 @@ def evaluate_airdrop_status(airdrop: Dict[str, any]) -> str:
     return current_status
 
 
-def refresh_statuses_for_user(user_id: int) -> None:
+def refresh_statuses_for_user(user_id: int) -> List[Dict[str, any]]:
+    changed_airdrops: List[Dict[str, any]] = []
     airdrops = database.get_airdrops_by_user(user_id)
     for airdrop in airdrops:
         new_status = evaluate_airdrop_status(airdrop)
         if new_status != airdrop["status"]:
             database.update_airdrop_status(airdrop["id"], new_status)
-            asyncio.create_task(notifier.notify_airdrop_update({**airdrop, "status": new_status}))
+            changed_airdrops.append({**airdrop, "status": new_status})
+    return changed_airdrops
 
 
 async def schedule_status_updates(interval_hours: int = 12) -> None:

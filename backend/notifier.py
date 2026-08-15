@@ -1,4 +1,4 @@
-import os
+import sqlite3
 from typing import Dict, Optional
 
 import httpx
@@ -8,6 +8,7 @@ try:
 except ImportError:  # X notifications are optional; auth must not depend on them.
     tweepy = None
 
+from . import database
 from .config import DISCORD_WEBHOOK_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET, X_API_KEY, X_API_SECRET, X_BEARER_TOKEN
 
 
@@ -63,6 +64,14 @@ async def notify_airdrop_update(airdrop: Dict[str, str], screenshot_path: Option
     if screenshot_path:
         message_lines.append("Screenshot attached")
     message = "\n".join(message_lines)
+
+    airdrop_id = airdrop.get("id")
+    if airdrop_id is not None:
+        try:
+            database.insert_notification(int(airdrop_id), "workflow", message)
+        except (TypeError, ValueError, sqlite3.Error):
+            # Notification delivery remains best-effort even if audit persistence fails.
+            pass
 
     await send_discord_notification(message)
     await send_telegram_notification(message)

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 
 from backend import evidence, main
 from backend.models import StepExecution, User
@@ -37,14 +37,9 @@ def configure_owned_records(monkeypatch) -> None:
     monkeypatch.setattr(main.database, "get_task_by_id", lambda task_id: {"id": task_id, "airdrop_id": 7})
 
 
-def close_scheduled_coroutine(coroutine) -> None:
-    coroutine.close()
-
-
 def test_execute_step_stores_validated_evidence_and_progress(monkeypatch, tmp_path):
     configure_owned_records(monkeypatch)
     monkeypatch.setattr(evidence, "SCREENSHOT_BASE", tmp_path)
-    monkeypatch.setattr(main.asyncio, "create_task", close_scheduled_coroutine)
     captured = {}
 
     def insert_progress(profile_id, task_id, status, screenshot_path):
@@ -58,7 +53,7 @@ def test_execute_step_stores_validated_evidence_and_progress(monkeypatch, tmp_pa
 
     monkeypatch.setattr(main.database, "insert_progress", insert_progress)
 
-    result = main.execute_step(make_execution(), make_user())
+    result = main.execute_step(make_execution(), BackgroundTasks(), make_user())
 
     screenshot_path = Path(result["screenshot_path"])
     assert result["progress_id"] == 19
@@ -83,7 +78,7 @@ def test_execute_step_hides_missing_or_foreign_profile(monkeypatch, profile):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        main.execute_step(make_execution(), make_user())
+        main.execute_step(make_execution(), BackgroundTasks(), make_user())
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "Profile not found"
@@ -100,7 +95,7 @@ def test_execute_step_hides_missing_or_foreign_airdrop(monkeypatch, airdrop):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        main.execute_step(make_execution(), make_user())
+        main.execute_step(make_execution(), BackgroundTasks(), make_user())
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "Airdrop not found"
@@ -117,7 +112,7 @@ def test_execute_step_rejects_missing_or_unrelated_task(monkeypatch, task):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        main.execute_step(make_execution(), make_user())
+        main.execute_step(make_execution(), BackgroundTasks(), make_user())
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "Task not found for airdrop"
@@ -145,7 +140,7 @@ def test_execute_step_rejects_invalid_screenshot(monkeypatch, tmp_path, screensh
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        main.execute_step(make_execution(screenshot=screenshot), make_user())
+        main.execute_step(make_execution(screenshot=screenshot), BackgroundTasks(), make_user())
 
     assert exc_info.value.status_code == status_code
     assert exc_info.value.detail == detail
@@ -157,7 +152,7 @@ def test_execute_step_rejects_screenshot_over_configured_limit(monkeypatch):
     monkeypatch.setattr(evidence, "MAX_SCREENSHOT_BYTES", len(PNG_BYTES) - 1)
 
     with pytest.raises(HTTPException) as exc_info:
-        main.execute_step(make_execution(), make_user())
+        main.execute_step(make_execution(), BackgroundTasks(), make_user())
 
     assert exc_info.value.status_code == 413
     assert "MiB limit" in exc_info.value.detail
@@ -173,7 +168,7 @@ def test_execute_step_removes_evidence_when_progress_insert_fails(monkeypatch, t
     )
 
     with pytest.raises(RuntimeError, match="database unavailable"):
-        main.execute_step(make_execution(), make_user())
+        main.execute_step(make_execution(), BackgroundTasks(), make_user())
 
     assert [path for path in tmp_path.rglob("*") if path.is_file()] == []
 
