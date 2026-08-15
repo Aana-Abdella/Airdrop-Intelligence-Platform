@@ -21,6 +21,10 @@ export function Icon({ name, className = 'h-5 w-5' }) {
     activity: <path d="M3 12h4l3-8 4 16 3-8h4"/>,
     clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
     menu: <><path d="M4 6h16M4 12h16M4 18h16"/></>,
+    list: <><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></>,
+    bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
+    trash: <><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></>,
+    warning: <><path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></>,
   };
 
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
@@ -42,6 +46,9 @@ export function AppShell({ user, onLogout, children, title, eyebrow, actions }) 
     { to: '/', label: 'Overview', icon: 'dashboard', end: true },
     { to: '/profiles', label: 'Profiles', icon: 'users' },
     { to: '/airdrops', label: 'Airdrops', icon: 'target' },
+    { to: '/tasks', label: 'Tasks', icon: 'list' },
+    { to: '/notifications', label: 'Alerts', icon: 'bell' },
+    { to: '/security', label: 'Security', icon: 'shield' },
   ];
 
   return (
@@ -67,7 +74,7 @@ export function AppShell({ user, onLogout, children, title, eyebrow, actions }) 
             <div className="lg:hidden"><Brand compact /></div>
             <div className="hidden lg:block"><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">{eyebrow}</p></div>
             <div className="flex items-center gap-2">
-              <span className="hidden items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-1.5 text-xs font-medium text-emerald-300 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />Systems operational</span>
+              <span className="hidden items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-slate-400 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Authenticated session</span>
               <button onClick={onLogout} className="rounded-xl border border-white/[0.08] p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white lg:hidden" aria-label="Sign out"><Icon name="logout" className="h-4 w-4" /></button>
             </div>
           </div>
@@ -81,8 +88,8 @@ export function AppShell({ user, onLogout, children, title, eyebrow, actions }) 
           {children}
         </main>
 
-        <nav className="fixed inset-x-3 bottom-3 z-40 flex items-center justify-around rounded-2xl border border-white/10 bg-[#101620]/95 p-2 shadow-2xl backdrop-blur-xl lg:hidden">
-          {nav.map((item) => <NavLink key={item.to} {...item} className={({ isActive }) => `flex min-w-24 flex-col items-center gap-1 rounded-xl px-4 py-2 text-[11px] font-medium ${isActive ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-500'}`}><Icon name={item.icon} className="h-5 w-5" />{item.label}</NavLink>)}
+        <nav className="fixed inset-x-3 bottom-3 z-40 flex items-center gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-[#101620]/95 p-2 shadow-2xl backdrop-blur-xl lg:hidden">
+          {nav.map((item) => <NavLink key={item.to} {...item} className={({ isActive }) => `flex min-w-[72px] flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium ${isActive ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-500'}`}><Icon name={item.icon} className="h-5 w-5" />{item.label}</NavLink>)}
         </nav>
       </div>
     </div>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api';
 import { AppShell, EmptyState, Icon } from './ui';
 
-const initialForm = { project_name: '', website: '', reward_type: 'Token', reward_amount: '', deadline: '', claim_link: '' };
+const initialForm = { project_name: '', website: '', reward_type: 'Token', reward_amount: '', deadline: '', claim_link: '', tasks: [] };
 const inputClass = 'w-full rounded-xl border border-white/[0.08] bg-[#0a0f17] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-700 focus:border-indigo-400/40 focus:ring-4 focus:ring-indigo-500/10';
 
 const columns = [
@@ -20,6 +20,7 @@ function AirdropTracker({ user, onLogout }) {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
+  const [taskDraft, setTaskDraft] = useState({ task_name: '', task_type: 'Social' });
 
   const fetchAirdrops = useCallback(async () => {
     setLoading(true);
@@ -50,6 +51,11 @@ function AirdropTracker({ user, onLogout }) {
     } finally { setSubmitting(false); }
   };
   const closeForm = () => { setShowForm(false); setFormData(initialForm); };
+  const addTask = () => {
+    if (!taskDraft.task_name.trim()) return;
+    setFormData({ ...formData, tasks: [...formData.tasks, { ...taskDraft, task_name: taskDraft.task_name.trim() }] });
+    setTaskDraft({ task_name: '', task_type: 'Social' });
+  };
 
   return <AppShell user={user} onLogout={onLogout} eyebrow="Campaign tracking" title="Airdrop tracker" actions={<div className="flex gap-2"><button onClick={fetchAirdrops} className="flex items-center gap-2 rounded-xl border border-white/[0.08] px-4 py-2.5 text-xs font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white"><Icon name="activity" className="h-4 w-4" />Refresh</button><button onClick={() => setShowForm(true)} className="flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-950/30 transition hover:bg-indigo-400"><Icon name="plus" className="h-4 w-4" />Add campaign</button></div>}>
     <div className="mb-7 flex flex-wrap gap-3"><div className="rounded-2xl border border-indigo-400/10 bg-indigo-500/[0.06] px-4 py-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-300">Tracked campaigns</p><p className="mt-1 text-2xl font-semibold text-white">{total}</p></div><div className="rounded-2xl border border-emerald-400/10 bg-emerald-500/[0.05] px-4 py-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-300">Ready to claim</p><p className="mt-1 text-2xl font-semibold text-white">{(groups.CLAIMABLE || []).length}</p></div></div>
@@ -62,6 +68,7 @@ function AirdropTracker({ user, onLogout }) {
           <div className="grid gap-5 sm:grid-cols-2"><div><label htmlFor="airdrop-project" className="mb-2 block text-xs font-medium text-slate-300">Project name *</label><input id="airdrop-project" required value={formData.project_name} onChange={(event) => setFormData({ ...formData, project_name: event.target.value })} className={inputClass} placeholder="Project / protocol name" autoFocus /></div><div><label htmlFor="airdrop-reward-type" className="mb-2 block text-xs font-medium text-slate-300">Reward type *</label><input id="airdrop-reward-type" required value={formData.reward_type} onChange={(event) => setFormData({ ...formData, reward_type: event.target.value })} className={inputClass} placeholder="Token, NFT, points…" /></div></div>
           <div className="grid gap-5 sm:grid-cols-2"><div><label htmlFor="airdrop-website" className="mb-2 block text-xs font-medium text-slate-300">Website *</label><input id="airdrop-website" type="url" required value={formData.website} onChange={(event) => setFormData({ ...formData, website: event.target.value })} className={inputClass} placeholder="https://example.com" /></div><div><label htmlFor="airdrop-reward-amount" className="mb-2 block text-xs font-medium text-slate-300">Reward amount</label><input id="airdrop-reward-amount" value={formData.reward_amount} onChange={(event) => setFormData({ ...formData, reward_amount: event.target.value })} className={inputClass} placeholder="10,000 points / TBA" /></div></div>
           <div className="grid gap-5 sm:grid-cols-2"><div><label htmlFor="airdrop-deadline" className="mb-2 block text-xs font-medium text-slate-300">Deadline *</label><input id="airdrop-deadline" type="datetime-local" required value={formData.deadline} onChange={(event) => setFormData({ ...formData, deadline: event.target.value })} className={inputClass} /></div><div><label htmlFor="airdrop-claim-link" className="mb-2 block text-xs font-medium text-slate-300">Claim link</label><input id="airdrop-claim-link" type="url" value={formData.claim_link} onChange={(event) => setFormData({ ...formData, claim_link: event.target.value })} className={inputClass} placeholder="https://claim.example.com" /></div></div>
+          <div><label htmlFor="airdrop-task" className="mb-2 block text-xs font-medium text-slate-300">Campaign tasks</label><div className="flex flex-col gap-2 sm:flex-row"><input id="airdrop-task" value={taskDraft.task_name} onChange={(event) => setTaskDraft({ ...taskDraft, task_name: event.target.value })} className={inputClass} placeholder="Task name" /><select value={taskDraft.task_type} onChange={(event) => setTaskDraft({ ...taskDraft, task_type: event.target.value })} className={`${inputClass} sm:w-40`}><option>Social</option><option>Faucet</option><option>Testnet</option><option>Quiz</option><option>Discord</option></select><button type="button" onClick={addTask} className="rounded-xl border border-white/[0.08] px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/5">Add</button></div>{formData.tasks.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{formData.tasks.map((task, index) => <button type="button" key={`${task.task_name}-${index}`} onClick={() => setFormData({ ...formData, tasks: formData.tasks.filter((_, itemIndex) => itemIndex !== index) })} className="rounded-lg bg-white/[0.05] px-3 py-2 text-xs text-slate-400" title="Remove task">{task.task_name} · {task.task_type} ×</button>)}</div>}</div>
           <div className="flex flex-col-reverse gap-3 border-t border-white/[0.06] pt-5 sm:flex-row sm:justify-end"><button type="button" onClick={closeForm} className="rounded-xl border border-white/[0.08] px-5 py-3 text-sm font-medium text-slate-400 transition hover:bg-white/5 hover:text-white">Cancel</button><button type="submit" disabled={submitting} className="flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-60">{submitting ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Creating…</> : <><Icon name="plus" className="h-4 w-4" />Create campaign</>}</button></div>
         </form>
       </div>

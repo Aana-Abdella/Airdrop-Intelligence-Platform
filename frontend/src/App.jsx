@@ -6,6 +6,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import ProfileManager from './components/ProfileManager';
 import AirdropTracker from './components/AirdropTracker';
+import Operations from './components/Operations';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -78,6 +79,10 @@ function App() {
             path="/airdrops"
             element={user ? <AirdropTracker user={user} onLogout={logout} /> : <Navigate to="/login" />}
           />
+          <Route path="/tasks" element={user ? <Operations view="tasks" user={user} onLogout={logout} /> : <Navigate to="/login" />} />
+          <Route path="/notifications" element={user ? <Operations view="notifications" user={user} onLogout={logout} /> : <Navigate to="/login" />} />
+          <Route path="/security" element={user ? <Operations view="security" user={user} onLogout={logout} /> : <Navigate to="/login" />} />
+          <Route path="*" element={<Navigate to={user ? '/' : '/login'} />} />
         </Routes>
       </div>
     </Router>
