@@ -33,6 +33,11 @@ X_BEARER_TOKEN = os.getenv("X_BEARER_TOKEN", "")
 # SQLite file path
 DB_PATH = Path(os.getenv("AIP_DB_PATH", str(Path(__file__).parent / "aws.db"))).expanduser()
 
+# Built frontend served by FastAPI in production
+FRONTEND_DIST = Path(
+    os.getenv("AIP_FRONTEND_DIST", str(Path(__file__).parent.parent / "frontend" / "dist"))
+).expanduser()
+
 # Screenshot storage
 SCREENSHOT_BASE = Path(
     os.getenv("AIP_SCREENSHOT_PATH", str(Path(__file__).parent / "screenshots"))

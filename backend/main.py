@@ -4,13 +4,15 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Dict, List
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 
 from . import database, evidence, notifier, status_engine
 from .auth import authenticate_user, create_access_token, get_current_user, get_password_hash
-from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS, CORS_ORIGINS, ENVIRONMENT, SECRET_KEY
+from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS, CORS_ORIGINS, ENVIRONMENT, FRONTEND_DIST, SECRET_KEY
 from .models import AirdropCreate, AirdropResponse, AirdropStatus, DiscoveryAirdrop, ProfileCreate, Profile, ProgressStatus, StepExecution, Token, User, UserCreate
 from .services.discovery import DiscoveryProject, fetch_discovery_projects
 from .services.intelligence import build_project_score, recommend_action
@@ -43,6 +45,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+FRONTEND_ROUTES = {
+    "/",
+    "/login",
+    "/profiles",
+    "/airdrops",
+    "/tasks",
+    "/notifications",
+    "/security",
+}
+
+
+@app.middleware("http")
+async def serve_frontend_routes(request: Request, call_next):
+    accepts_html = "text/html" in request.headers.get("accept", "")
+    if request.method == "GET" and accepts_html and request.url.path in FRONTEND_ROUTES:
+        index_file = FRONTEND_DIST / "index.html"
+        if index_file.is_file():
+            return FileResponse(index_file)
+    return await call_next(request)
 
 
 async def schedule_cleanup() -> None:
@@ -443,3 +465,16 @@ def refresh_statuses(
     for airdrop in changed_airdrops:
         background_tasks.add_task(notifier.notify_airdrop_update, airdrop)
     return {"detail": f"Status refresh completed; {len(changed_airdrops)} campaign(s) updated"}
+
+
+def mount_frontend(application: FastAPI) -> bool:
+    """Serve the Vite build when it is present in the runtime image."""
+    assets_dir = FRONTEND_DIST / "assets"
+    if not (FRONTEND_DIST / "index.html").is_file() or not assets_dir.is_dir():
+        return False
+
+    application.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+    return True
+
+
+mount_frontend(app)

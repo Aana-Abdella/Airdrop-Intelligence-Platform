@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-// Use VITE_API_URL in deployed environments while keeping local development
-// working without an additional .env file.
+// Production uses the same origin because FastAPI serves the built frontend.
+// VITE_API_URL remains available for split deployments.
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : window.location.origin),
 });
 
 api.interceptors.request.use((config) => {
