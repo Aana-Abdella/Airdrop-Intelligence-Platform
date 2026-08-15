@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from ..models import ParticipationType, TaskType
@@ -25,7 +25,7 @@ class DiscoveryProject:
 
 
 def fetch_discovery_projects() -> List[DiscoveryProject]:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     return [
         DiscoveryProject(
             id="galxe-community-pulse",

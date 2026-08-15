@@ -1,4 +1,5 @@
 import asyncio
+import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Dict, List
@@ -162,7 +163,12 @@ def start_discovered_airdrop(
         "network": project.network,
         "participation_types": project.participation_types,
     }
-    airdrop_id = database.insert_airdrop(current_user.id, payload, project.tasks)
+    try:
+        airdrop_id = database.insert_airdrop(current_user.id, payload, project.tasks)
+    except sqlite3.IntegrityError as exc:
+        if database.get_airdrop_by_catalog_id(current_user.id, catalog_id):
+            raise HTTPException(status_code=409, detail="Airdrop already started") from exc
+        raise
     created = database.get_airdrop_by_id(airdrop_id)
     if created is None:
         raise HTTPException(status_code=500, detail="Unable to start airdrop")
