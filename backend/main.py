@@ -10,7 +10,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from . import database, evidence, notifier, status_engine
 from .auth import authenticate_user, create_access_token, get_current_user, get_password_hash
 from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS, CORS_ORIGINS, ENVIRONMENT, SECRET_KEY
-from .models import AirdropCreate, AirdropResponse, AirdropStatus, ProfileCreate, Profile, ProgressStatus, StepExecution, Token, User, UserCreate
+from .models import AirdropCreate, AirdropResponse, AirdropStatus, DiscoveryAirdrop, ProfileCreate, Profile, ProgressStatus, StepExecution, Token, User, UserCreate
+from .services.discovery import DiscoveryProject, fetch_discovery_projects
 from .services.intelligence import build_project_score, recommend_action
 
 @asynccontextmanager
@@ -62,6 +63,25 @@ def _parse_deadline(value: object) -> datetime:
     return deadline.replace(tzinfo=None)
 
 
+def _discovery_response(project: DiscoveryProject, started_ids: set[str]) -> dict:
+    return {
+        "id": project.id,
+        "project_name": project.name,
+        "website": project.website,
+        "source": project.source,
+        "description": project.description,
+        "network": project.network,
+        "reward_type": project.reward_type,
+        "reward_amount": project.reward_amount,
+        "deadline": project.deadline,
+        "score": project.score,
+        "participation_types": project.participation_types,
+        "tasks": project.tasks,
+        "discovered_at": project.discovered_at,
+        "is_started": project.id in started_ids,
+    }
+
+
 @app.get("/health", tags=["system"])
 def health() -> dict:
     return {"status": "ok", "database": "sqlite", "environment": ENVIRONMENT}
@@ -101,6 +121,52 @@ def read_users_me(current_user: User = Depends(get_current_user)) -> User:
 def get_airdrops(current_user: User = Depends(get_current_user)) -> Dict[str, List[AirdropResponse]]:
     airdrops = database.get_airdrops_by_user(current_user.id)
     return _group_airdrops_by_status(airdrops)
+
+
+@app.get("/airdrops/discover", response_model=List[DiscoveryAirdrop])
+def discover_airdrops(current_user: User = Depends(get_current_user)) -> List[dict]:
+    started_ids = {
+        item["catalog_id"]
+        for item in database.get_airdrops_by_user(current_user.id)
+        if item.get("catalog_id")
+    }
+    return [_discovery_response(project, started_ids) for project in fetch_discovery_projects()]
+
+
+@app.post(
+    "/airdrops/discover/{catalog_id}/start",
+    response_model=AirdropResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def start_discovered_airdrop(
+    catalog_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    project = next((item for item in fetch_discovery_projects() if item.id == catalog_id), None)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Discovery airdrop not found")
+    if database.get_airdrop_by_catalog_id(current_user.id, catalog_id):
+        raise HTTPException(status_code=409, detail="Airdrop already started")
+
+    payload = {
+        "project_name": project.name,
+        "website": project.website,
+        "reward_type": project.reward_type,
+        "reward_amount": project.reward_amount,
+        "deadline": project.deadline,
+        "claim_link": None,
+        "status": AirdropStatus.ONGOING.value,
+        "catalog_id": project.id,
+        "source": project.source,
+        "description": project.description,
+        "network": project.network,
+        "participation_types": project.participation_types,
+    }
+    airdrop_id = database.insert_airdrop(current_user.id, payload, project.tasks)
+    created = database.get_airdrop_by_id(airdrop_id)
+    if created is None:
+        raise HTTPException(status_code=500, detail="Unable to start airdrop")
+    return created
 
 
 @app.get("/dashboard")

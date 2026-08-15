@@ -15,10 +15,19 @@ class AirdropStatus(str, Enum):
 
 class TaskType(str, Enum):
     SOCIAL = "Social"
+    WALLET = "Wallet"
+    EARLY_ACCESS = "Early access"
     FAUCET = "Faucet"
     TESTNET = "Testnet"
     QUIZ = "Quiz"
     DISCORD = "Discord"
+
+
+class ParticipationType(str, Enum):
+    SOCIAL_TASKS = "Social tasks"
+    WALLET_ACTIVITY = "Wallet activity"
+    EARLY_ACCESS = "Early access"
+    TESTNET = "Testnet"
 
 
 class ProgressStatus(str, Enum):
@@ -117,6 +126,28 @@ class AirdropResponse(BaseModel):
     claim_link: Optional[HttpUrl]
     created_at: datetime
     tasks: List[TaskItem] = Field(default_factory=list)
+    catalog_id: Optional[str] = None
+    source: Optional[str] = None
+    description: Optional[str] = None
+    network: Optional[str] = None
+    participation_types: List[ParticipationType] = Field(default_factory=list)
+
+
+class DiscoveryAirdrop(BaseModel):
+    id: str
+    project_name: str
+    website: HttpUrl
+    source: str
+    description: str
+    network: str
+    reward_type: str
+    reward_amount: Optional[str] = None
+    deadline: datetime
+    score: int = Field(ge=0, le=100)
+    participation_types: List[ParticipationType]
+    tasks: List[TaskItem]
+    discovered_at: datetime
+    is_started: bool = False
 
 
 class ProgressRecord(BaseModel):
