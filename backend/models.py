@@ -28,6 +28,36 @@ class ParticipationType(str, Enum):
     WALLET_ACTIVITY = "Wallet activity"
     EARLY_ACCESS = "Early access"
     TESTNET = "Testnet"
+    WALLET_HOLDING_AIRDROP = "Wallet-Holding Airdrop"
+    TRANSACTION_BASED = "Transaction-Based"
+    TRADING_BASED = "Trading-Based"
+    LIQUIDITY_PROVIDER = "Liquidity Provider (LP)"
+    STAKING_BASED = "Staking-Based"
+    BRIDGING_BASED = "Bridging-Based"
+    DEFI_USAGE = "DeFi Usage"
+    NFT_BASED = "NFT-Based"
+    TESTNET_AIRDROP = "Testnet Airdrop"
+    MAINNET_USER = "Mainnet User"
+    SOCIAL_TASK = "Social Task"
+    REFERRAL_AIRDROP = "Referral Airdrop"
+    QUEST_BASED = "Quest-Based"
+    DISCORD_BASED = "Discord-Based"
+    TELEGRAM_BASED = "Telegram-Based"
+    GOVERNANCE_BASED = "Governance-Based"
+    DEVELOPER_BUILDER = "Developer/Builder"
+    CONTRIBUTION_BASED = "Contribution-Based"
+    EARLY_USER_AIRDROP = "Early-User Airdrop"
+    RETROACTIVE_AIRDROP = "Retroactive Airdrop"
+    NFT_TOKEN_HOLDER_SNAPSHOT = "NFT/Token Holder Snapshot"
+    ECOSYSTEM_AIRDROP = "Ecosystem Airdrop"
+    REFERRAL_ACTIVITY = "Referral + Activity"
+    POINTS_BASED = "Points-Based"
+    TIER_BASED = "Tier-Based"
+    PROOF_OF_ACTIVITY = "Proof-of-Activity"
+    LIQUIDITY_VOLUME_TIER = "Liquidity/Volume Tier"
+    COMMUNITY_ROLE_BASED = "Community/Role-Based"
+    CONTENT_CREATOR = "Content Creator"
+    HYBRID_AIRDROP = "Hybrid Airdrop"
 
 
 class ProgressStatus(str, Enum):
@@ -107,6 +137,7 @@ class AirdropCreate(BaseModel):
     deadline: datetime
     claim_link: Optional[HttpUrl] = None
     tasks: List[TaskItem] = Field(default_factory=list)
+    participation_types: List[ParticipationType] = Field(default_factory=list)
 
     @field_validator("tasks", mode="before")
     @classmethod

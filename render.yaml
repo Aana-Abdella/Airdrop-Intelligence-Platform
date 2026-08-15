@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: airdrop-intelligence-platform
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    disk:
+      name: aip-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: AIP_ENVIRONMENT
+        value: production
+      - key: AIP_SECRET_KEY
+        generateValue: true

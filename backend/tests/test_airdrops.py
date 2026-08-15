@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from backend import main
-from backend.models import AirdropCreate, AirdropStatus, TaskItem, TaskType, User
+from backend.models import AirdropCreate, AirdropStatus, ParticipationType, TaskItem, TaskType, User
 
 
 def make_user() -> User:
@@ -20,6 +20,7 @@ def make_airdrop() -> AirdropCreate:
         deadline="2026-09-01T12:00:00Z",
         claim_link="https://claim.example.com",
         tasks=[TaskItem(task_name="Join community", task_type=TaskType.DISCORD)],
+        participation_types=[ParticipationType.COMMUNITY_ROLE_BASED],
     )
 
 
@@ -53,6 +54,7 @@ def test_create_airdrop_assigns_authenticated_owner(monkeypatch):
     assert captured["payload"]["status"] == AirdropStatus.NEW
     assert captured["payload"]["website"] == "https://example.com/"
     assert captured["payload"]["claim_link"] == "https://claim.example.com/"
+    assert captured["payload"]["participation_types"] == ["Community/Role-Based"]
     assert captured["tasks"] == [{"task_name": "Join community", "task_type": "Discord"}]
 
 

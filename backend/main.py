@@ -12,7 +12,14 @@ from fastapi.staticfiles import StaticFiles
 
 from . import database, evidence, notifier, status_engine
 from .auth import authenticate_user, create_access_token, get_current_user, get_password_hash
-from .config import ACCESS_TOKEN_EXPIRE_MINUTES, CLEANUP_HOURS, CORS_ORIGINS, ENVIRONMENT, FRONTEND_DIST, SECRET_KEY
+from .config import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    CLEANUP_HOURS,
+    CORS_ORIGINS,
+    ENVIRONMENT,
+    FRONTEND_DIST,
+    SECRET_KEY,
+)
 from .models import AirdropCreate, AirdropResponse, AirdropStatus, DiscoveryAirdrop, ProfileCreate, Profile, ProgressStatus, StepExecution, Token, User, UserCreate
 from .services.discovery import DiscoveryProject, fetch_discovery_projects
 from .services.intelligence import build_project_score, recommend_action
@@ -59,6 +66,7 @@ FRONTEND_ROUTES = {
 
 @app.middleware("http")
 async def serve_frontend_routes(request: Request, call_next):
+    """Return the SPA shell only for browser navigation to known UI routes."""
     accepts_html = "text/html" in request.headers.get("accept", "")
     if request.method == "GET" and accepts_html and request.url.path in FRONTEND_ROUTES:
         index_file = FRONTEND_DIST / "index.html"
@@ -236,6 +244,7 @@ def get_dashboard(current_user: User = Depends(get_current_user)) -> dict:
         recommendations.append(
             {
                 "project_name": airdrop["project_name"],
+                "website": airdrop["website"],
                 "score": score["total"],
                 "action": recommend_action(int(score["total"]), risk, 0),
             }
@@ -248,6 +257,7 @@ def get_dashboard(current_user: User = Depends(get_current_user)) -> dict:
         if airdrop["status"] == AirdropStatus.CLAIMABLE.value or airdrop.get("claim_link"):
             claims.append({
                 "project": airdrop["project_name"],
+                "website": airdrop.get("claim_link") or airdrop["website"],
                 "snapshot_date": str(airdrop["created_at"])[:10],
                 "claim_date": deadline[:10],
                 "status": "Claimable" if airdrop["status"] == AirdropStatus.CLAIMABLE.value else "Monitoring",
@@ -264,6 +274,7 @@ def get_dashboard(current_user: User = Depends(get_current_user)) -> dict:
             for task in remaining[:3]:
                 planner.append({
                     "title": f'{airdrop["project_name"]}: {task["task_name"]}',
+                    "website": airdrop["website"],
                     "estimate": "Unestimated",
                     "cost": "Not recorded",
                     "priority": "High" if airdrop["status"] == AirdropStatus.CLAIMABLE.value else "Normal",
@@ -310,6 +321,7 @@ def create_airdrop(airdrop: AirdropCreate, current_user: User = Depends(get_curr
         "deadline": airdrop.deadline.isoformat(),
         "claim_link": str(airdrop.claim_link) if airdrop.claim_link else None,
         "status": AirdropStatus.NEW,
+        "participation_types": [item.value for item in airdrop.participation_types],
     }
     task_dicts = [
         {"task_name": task.task_name, "task_type": task.task_type.value}

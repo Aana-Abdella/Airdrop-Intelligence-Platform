@@ -62,6 +62,7 @@ The project is a local-first FastAPI and React workspace for user-owned farming 
 | [🏗️ Architecture](architecture.md) | Components, trust boundaries, persistence, and runtime flows |
 | [🖥️ Frontend](frontend.md) | React routes, components, API client, and build workflow |
 | [⚙️ Backend](backend.md) | FastAPI endpoints, domain models, status engine, and services |
+| [Deployment](deployment.md) | Production image, Render Blueprint, persistence, and backups |
 | [🌐 Networks](networks.md) | What network-related data exists—and what does not |
 | [🤝 Contributing](contributing.md) | Development workflow, tests, documentation standards, and PR checklist |
 

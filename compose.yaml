@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      AIP_ENVIRONMENT: production
+      AIP_SECRET_KEY: ${AIP_SECRET_KEY:?Set AIP_SECRET_KEY before starting the production stack}
+      AIP_ACCESS_TOKEN_EXPIRE_MINUTES: ${AIP_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      AIP_CLEANUP_HOURS: ${AIP_CLEANUP_HOURS:-72}
+    volumes:
+      - aip-data:/data
+    restart: unless-stopped
+
+volumes:
+  aip-data:

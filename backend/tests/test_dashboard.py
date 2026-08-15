@@ -38,6 +38,8 @@ def test_dashboard_derives_cards_from_authenticated_users_records(monkeypatch):
     assert result["active_projects"] == 1
     assert result["profiles"] == 1
     assert result["claims"][0]["project"] == "Example Protocol"
+    assert result["claims"][0]["website"] == "https://claim.example.com"
+    assert result["recommendations"][0]["website"] == "https://example.com"
     assert result["wallets"] == [{
         "chain": "Addis Ababa",
         "balance": "Not connected",
@@ -47,6 +49,7 @@ def test_dashboard_derives_cards_from_authenticated_users_records(monkeypatch):
     assert result["planner"] == []
     assert result["scheduler"] == []
     assert result["discovery_projects"][0]["source"] == "Tracked"
+    assert result["discovery_projects"][0]["website"] == "https://example.com"
 
 
 def test_dashboard_is_empty_when_user_has_no_records(monkeypatch):

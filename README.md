@@ -54,6 +54,17 @@ npm run dev
 
 Open `http://localhost:5173`. The complete setup, configuration, broadcaster, testing, and security guidance is in the **[documentation hub](docs/README.md)**.
 
+## Deploy
+
+The production image builds the React app and serves it from FastAPI on one origin. Deploy with the included `render.yaml` Blueprint, or run the image locally:
+
+```bash
+export AIP_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+docker compose up --build -d
+```
+
+The production app is available at `http://localhost:8000`, with SQLite and evidence files stored in the `aip-data` volume. See [Deployment](docs/deployment.md) for Render setup, backups, upgrades, and the optional Discord worker.
+
 ## 🧪 Checks
 
 ```bash
@@ -78,6 +89,7 @@ Start at [📚 Documentation](docs/README.md), then choose:
 
 - [Introduction](docs/introduction.md)
 - [Getting Started](docs/getting-started.md)
+- [Deployment](docs/deployment.md)
 - [Configuration](docs/configuration.md)
 - [User Guide](docs/user-guide.md)
 - [Backend](docs/backend.md) · [Frontend](docs/frontend.md)

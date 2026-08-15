@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.vscode
+.venv
+__pycache__
+*.py[cod]
+*.db
+*.sqlite3
+.env
+.env.*
+!.env.example
+backend/screenshots
+frontend/dist
+frontend/node_modules
+discord-bot

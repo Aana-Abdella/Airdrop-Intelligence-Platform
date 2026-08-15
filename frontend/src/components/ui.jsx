@@ -30,6 +30,19 @@ export function Icon({ name, className = 'h-5 w-5' }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
+export function CampaignLink({ href, label = 'Open campaign', className = '' }) {
+  let safeHref;
+  try {
+    const parsed = new URL(String(href));
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    safeHref = parsed.href;
+  } catch {
+    return null;
+  }
+
+  return <a href={safeHref} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1.5 text-xs font-medium text-indigo-300 transition hover:text-white ${className}`}><Icon name="external" className="h-3.5 w-3.5" />{label}</a>;
+}
+
 export function Brand({ compact = false }) {
   return (
     <Link to="/" className="flex items-center gap-3">
