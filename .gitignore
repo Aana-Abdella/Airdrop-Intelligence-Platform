@@ -9,8 +9,13 @@ node_modules/
 dist/
 build/
 *.sqlite3
+*.db
 backend/airdrops.db
 backend/screenshots/
 frontend/node_modules/
 .DS_Store
 .env
+.env.*
+!.env.example
+frontend/.env
+discord-bot/.env
