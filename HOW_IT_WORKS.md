@@ -34,8 +34,7 @@ Core files:
 - **`backend/auth.py`**: JWT helpers (used by `backend/main.py`)
 
 ### Database (SQLite)
-Configured by `backend/config.py` as:
-- `DB_PATH = Path(__file__).parent / "aws.db"`
+Configured by `backend/config.py` as `AIP_DB_PATH`, defaulting to `backend/aws.db`.
 
 Tables (created by `backend/database.py::create_tables()`):
 - `users`
@@ -98,7 +97,7 @@ Profiles allow the same airdrop to be tracked across multiple identities.
 `status` starts as **NEW**.
 
 ### D) Execute a step (capture evidence + mark progress)
-1. When a user executes a task step, frontend calls:
+1. When an authorized API client executes a task step, it calls:
    - `POST /step`
 2. Backend does three things:
    1) **Validates ownership** of `execution.profile_id` for the current user
@@ -106,25 +105,25 @@ Profiles allow the same airdrop to be tracked across multiple identities.
       - `backend/config.py::SCREENSHOT_BASE / airdrop_id / profile_id / <timestamp>.png`
    3) **Inserts a progress record** into `progress`
 
-3. Backend also triggers notifications:
-   - `asyncio.create_task(notifier.notify_airdrop_update(...))`
+3. Backend records a user-scoped workflow notification event and also triggers optional provider notifications:
+   - FastAPI runs `notifier.notify_airdrop_update(...)` as a background task after the API response.
 
 ### E) Status refresh / automation
 There are two ways status can advance:
 1. **Manual refresh**:
    - `POST /refresh` → `status_engine.refresh_statuses_for_user(user_id)`
-2. **Scheduled refresh** (background job started on FastAPI startup):
+2. **Scheduled refresh scaffold** (background task started on FastAPI startup):
    - `backend/main.py` starts:
-     - `status_engine.schedule_status_updates()` (runs every 12 hours)
+     - `status_engine.schedule_status_updates()` (currently sleeps every 12 hours but does not enumerate users or update campaigns)
 
-When status changes, backend updates `airdrops.status` and notifies via `notifier.notify_airdrop_update`.
+When authenticated `POST /refresh` changes a status, the backend updates `airdrops.status` and schedules `notifier.notify_airdrop_update` through FastAPI background tasks.
 
 ### F) Cleanup (old records)
 On startup, `backend/main.py` also schedules cleanup:
 - periodically calls `database.cleanup_old_records(CLEANUP_HOURS)`
 - currently configured in `backend/config.py` as **72 hours**
 
-The cleanup deletes rows from `progress` for DONE items older than cutoff.
+The cleanup removes corresponding in-root screenshot files when possible, then deletes `progress` rows for DONE items older than cutoff.
 
 ---
 
@@ -151,6 +150,8 @@ Implemented in `backend/notifier.py`.
 - (optional) note that a screenshot was attached
 
 It does **not** post secrets/keys; it only posts status-level content.
+
+Notification rows are workflow-event audit records. They do not confirm that Discord, Telegram, or X accepted a message. Provider credentials are optional and delivery failures are best-effort.
 
 ---
 
@@ -207,8 +208,8 @@ This is helpful to verify your Telegram + Discord configuration quickly.
 
 ## 9) Configuration you must set
 
-In `backend/config.py` (or env overrides in your deployment):
-- `SECRET_KEY`, JWT settings
+In environment variables (see [`.env.example`](.env.example) and [`docs/configuration.md`](docs/configuration.md)):
+- `AIP_SECRET_KEY`, JWT settings
 - `DISCORD_WEBHOOK_URL`
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 - X credentials (`X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET`)

@@ -2,7 +2,7 @@
 
 [Documentation](README.md) / Configuration
 
-The repository has three configuration surfaces: the FastAPI module, the React build-time API origin, and the separate root broadcaster. The backend currently reads Python constants from `backend/config.py`; it does **not** automatically load a `.env` file.
+The repository has three configuration surfaces: the FastAPI module, the React build-time API origin, and the separate root broadcaster. The backend reads environment variables in `backend/config.py` and does **not** automatically load a `.env` file. Use your process manager, shell, container secret store, or a local untracked environment file to provide them.
 
 ## Configuration at a glance
 
@@ -17,16 +17,17 @@ The repository has three configuration surfaces: the FastAPI module, the React b
 
 ## ⚙️ Backend settings
 
-Edit `backend/config.py` only with local placeholders or values supplied by your secret-management process.
+Set these values in the process environment. The checked-in defaults are intended for local development only.
 
 | Setting | Current value | Effect |
 |---|---|---|
-| `SECRET_KEY` | Development placeholder | Signs and verifies JWTs; replace before any shared deployment |
+| `AIP_SECRET_KEY` | Development placeholder | Signs and verifies JWTs; replace before any shared deployment |
 | `ALGORITHM` | `HS256` | JWT signing algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | JWT lifetime |
-| `DB_PATH` | `backend/aws.db` | SQLite database location |
-| `SCREENSHOT_BASE` | `backend/screenshots` | Intended screenshot evidence directory; created at import time |
-| `CLEANUP_HOURS` | `72` | Age threshold for deleting old `DONE` progress rows |
+| `AIP_ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | JWT lifetime |
+| `AIP_DB_PATH` | `backend/aws.db` | SQLite database location |
+| `AIP_SCREENSHOT_PATH` | `backend/screenshots` | Screenshot evidence directory; created at import time |
+| `AIP_MAX_SCREENSHOT_BYTES` | `5242880` | Maximum accepted screenshot size |
+| `AIP_CLEANUP_HOURS` | `72` | Age threshold for deleting old `DONE` progress rows |
 
 ### Optional backend notifications
 
@@ -39,14 +40,14 @@ Empty values disable the corresponding adapter. The notifier currently supports:
 | `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET` | X via Tweepy | All four values |
 | `X_BEARER_TOKEN` | Reserved configuration value | Defined, but not used by the current notifier path |
 
-Notifications are best-effort. Missing credentials disable an adapter; delivery is not queued or audited by the current implementation. See [Security](security.md#third-party-notifications).
+Notifications are best-effort. Missing credentials disable an adapter. Workflow events are audited in the application database, but external delivery is neither queued nor confirmed. See [Security](security.md#third-party-notifications).
 
 > [!CAUTION]
 > Do not paste a real bot token, webhook URL, X credential, password, JWT secret, private key, seed phrase, or bearer token into documentation, issues, screenshots, or committed config.
 
 ## 🖥️ Frontend API origin
 
-`frontend/src/api.js` reads `VITE_API_URL`. The default is `http://localhost:8000`.
+`frontend/src/api.js` reads `VITE_API_URL`. The default is `http://localhost:8000`. This is a public API origin, not a secret.
 
 To use another local API origin:
 
@@ -73,9 +74,9 @@ The root `config.py` contains placeholders for:
 
 The broadcaster expects a usable integer Discord channel ID and a Telegram channel identifier accepted by the Telegram library. Keep the file local and run `python bot.py` only after configuring values safely.
 
-## CORS and local origins
+## 🌐 CORS and local origins
 
-CORS is configured in `backend/main.py`, not in a settings file. The checked-in list includes common Vite development origins and a wildcard. Before exposing the API beyond a trusted local environment, narrow the allowed origins deliberately and review credentialed CORS behavior.
+CORS is configured by `AIP_CORS_ORIGINS` in `backend/config.py` and accepts a comma-separated list. The development default contains common Vite origins and does not enable wildcard access. Before exposing the API beyond a trusted local environment, narrow the list to exact origins and review credentialed CORS behavior.
 
 ## Safe configuration checklist
 

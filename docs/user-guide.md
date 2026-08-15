@@ -11,7 +11,7 @@ This guide is for people using the local web interface—not for developers call
 
 1. Open <http://localhost:5173> after starting the backend and frontend.
 2. On the sign-in screen, choose **Create an account**.
-3. Enter a username and a password of at least six characters.
+3. Enter a username and a password of at least eight characters.
 4. Submit the form, then sign in with those credentials.
 5. A successful sign-in opens **Overview**. The browser keeps the session token locally so a reload can restore your session.
 
@@ -62,10 +62,11 @@ Enter:
 2. **Website** — a valid HTTP(S) URL;
 3. **Reward type** — the reward label shown in the pipeline;
 4. **Deadline** — the date used for display and status calculations;
-5. **Reward amount** — optional text; and
-6. **Claim link** — optional HTTP(S) URL.
+5. **Reward amount** — optional text;
+6. **Claim link** — optional HTTP(S) URL; and
+7. **Tasks** — optional task name, type, and detail rows for the campaign.
 
-The current dialog does not expose task-entry controls, so campaigns created through the UI contain no task definitions unless added through another API client.
+Task rows are optional. When present, they appear in the campaign card and in **Tasks** for user-scoped status monitoring. Evidence submission remains an API workflow.
 
 ### Step 3 — Start
 
@@ -80,13 +81,13 @@ Use the dashboard pipeline and metric cards to review your saved records. Status
 
 `NEW` → `ONGOING` → `COMPLETED` → `CLAIMABLE` → `ENDED`
 
-The campaign cards include a status selector. The backend persists the selected status and then attempts to schedule an optional notifier call. Because that route currently schedules asynchronous work from a synchronous handler, contributors should validate its response behavior in their runtime before relying on the UI confirmation. A status value is local metadata—not proof that a chain or campaign provider verified the state. A claim link and deadline can also affect automatic evaluation.
+The campaign cards include a status selector. The backend persists the selected status and schedules optional notifier work through FastAPI background tasks. A status value is local metadata—not proof that a chain or campaign provider verified the state. A claim link and deadline can also affect automatic evaluation.
 
-The frontend does not currently expose task creation, task execution, progress submission, or screenshot-evidence controls. Those concepts exist only in incomplete/API-level backend paths described in [How It Works](how-it-works.md#5-progress-and-evidence).
+The frontend does not currently expose task execution, progress submission, or screenshot-evidence controls. Those concepts exist in the API-level workflow described in [How It Works](how-it-works.md#5-progress-and-evidence).
 
 ## 📜 History
 
-The current interface does not include a dedicated history or notification-history screen. Authenticated API clients can read notification records from `GET /notifications`, while the SQLite database retains application data until configured cleanup applies to eligible old completed-progress rows.
+The **Tasks** and **Notifications** screens provide user-scoped activity views. Notification rows represent workflow events and do not confirm delivery by an external provider. The SQLite database retains application data until configured cleanup applies to eligible old completed-progress rows.
 
 ## ⚙️ User Settings
 

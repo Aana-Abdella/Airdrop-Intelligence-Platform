@@ -24,7 +24,7 @@ It is the frontend label for a deterministic local scoring function. The current
 
 ### What can I do from the frontend?
 
-You can register/sign in, create and list profiles, create campaigns, view the dashboard, and manually change campaign status. The UI does not expose task entry, progress submission, history, settings, notification history, or wallet connection.
+You can register/sign in, create and list profiles, create campaigns with task metadata, view the dashboard, manually change campaign status, inspect task activity, review notification workflow events, and inspect runtime security checks. The UI does not connect wallets, sign transactions, or provide a full settings/workflow automation center.
 
 ### What is `bot.py`?
 

@@ -10,4 +10,3 @@ TELEGRAM_CHANNEL_ID = "YOUR_TELEGRAM_CHANNEL_ID"  # e.g., @yourchannel or -10012
 # Discord Configuration
 DISCORD_BOT_TOKEN = "YOUR_DISCORD_BOT_TOKEN"
 DISCORD_CHANNEL_ID = 123456789012345678  # Replace with your Discord channel ID (integer)
-

@@ -114,8 +114,8 @@ Send `/test` to the configured Telegram bot to verify its fixed test broadcast. 
 
 1. Open <http://localhost:5173>.
 2. Select **Create an account**.
-3. Register with a test username and a password of at least six characters.
-4. Sign in and confirm the **Overview**, **Profiles**, and **Airdrops** navigation items appear.
+3. Register with a test username and a password of at least eight characters.
+4. Sign in and confirm the **Overview**, **Profiles**, **Airdrops**, **Tasks**, **Notifications**, and **Security** navigation items appear.
 5. Create a profile using non-sensitive placeholder metadata.
 6. Add a test campaign with a future deadline and confirm it appears under `NEW`.
 

@@ -12,6 +12,9 @@ The interface is a React 18 single-page application built with Vite, React Route
 | `/` | `Dashboard.jsx` | User-scoped metrics, derived panels, and campaign pipeline |
 | `/profiles` | `ProfileManager.jsx` | Create and list farming-profile metadata |
 | `/airdrops` | `AirdropTracker.jsx` | Create campaigns and manually edit status |
+| `/tasks` | `Operations.jsx` | User-scoped task status and latest evidence activity |
+| `/notifications` | `Operations.jsx` | Notification workflow events; not third-party delivery receipts |
+| `/security` | `Operations.jsx` | Runtime configuration checks; not a security guarantee |
 
 `ProtectedRoute` in `App.jsx` redirects unauthenticated visitors to `/login`. Authenticated users visiting `/login` return to `/`.
 
@@ -26,8 +29,9 @@ frontend/src/
 └── components/
     ├── Login.jsx                  # register/sign-in state
     ├── Dashboard.jsx              # overview workspace
-    ├── ProfileManager.jsx         # profile create/list
-    ├── AirdropTracker.jsx         # campaign create/status board
+    ├── ProfileManager.jsx         # profile create/list/delete
+    ├── AirdropTracker.jsx         # campaign create/tasks/status board
+    ├── Operations.jsx             # tasks, notifications, security views
     └── ui.jsx                     # AppShell, Icon, Modal, EmptyState
 ```
 
@@ -56,10 +60,10 @@ Document these distinctions whenever changing product copy.
 
 ## Forms and validation
 
-- Login/registration requires non-empty username and a frontend minimum password length of six.
-- Profile creation requires email, wallet, and Chrome port in the UI.
-- Campaign creation requires name, HTTP(S) website, reward type, and deadline.
-- The UI supports status updates, but it does not expose campaign task creation, progress submission, history, settings, or notifications.
+- Registration requires a valid username and a minimum password length of eight, matching the API contract.
+- Profile creation requires email, public wallet metadata, and Chrome port in the UI; private-key-shaped and seed-phrase-shaped values are rejected by the API.
+- Campaign creation requires name, HTTP(S) website, reward type, and deadline, and can include task items.
+- The UI supports status updates, task activity, notification history, profile deletion when no evidence depends on it, and runtime security checks. Evidence submission remains an API workflow and wallet signing/transaction history are not shipped.
 
 ## Local development
 

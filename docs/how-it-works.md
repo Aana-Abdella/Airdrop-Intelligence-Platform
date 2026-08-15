@@ -41,7 +41,7 @@ sequenceDiagram
 7. A `401` response clears the token and returns the interface to sign-in.
 
 > [!NOTE]
-> The frontend's password field enforces a minimum of six characters. The backend bcrypt helper also rejects passwords longer than 72 UTF-8 bytes.
+> The frontend and API enforce a minimum password length of eight characters. The backend bcrypt helper also rejects passwords longer than 72 UTF-8 bytes.
 
 ## 2. Farming profiles
 
@@ -65,7 +65,7 @@ No profile field causes a wallet connection, browser launch, proxy connection, o
 
 The Airdrop Tracker creates campaigns through `POST /airdrops`. Every new campaign starts in `NEW` and belongs to the authenticated user.
 
-Required campaign values are project name, valid HTTP(S) website URL, reward type, and deadline. Reward amount and claim link are optional. The API supports task objects, but the current campaign dialog does not include task-entry controls and therefore submits an empty task list.
+Required campaign values are project name, valid HTTP(S) website URL, reward type, and deadline. Reward amount and claim link are optional. The campaign dialog can also submit optional task objects.
 
 ## 4. Dashboard derivation
 
@@ -87,7 +87,7 @@ Required campaign values are project name, valid HTTP(S) website URL, reward typ
 The intended `POST /step` flow validates profile ownership, writes screenshot bytes below `backend/screenshots/<airdrop_id>/<profile_id>/`, inserts a `DONE` progress row, and schedules an optional notification.
 
 > [!CAUTION]
-> The current handler reads `execution.airdrop_id`, but the checked-in `StepExecution` model does not define `airdrop_id`. The frontend also has no progress submission screen. Treat `/step` as an incomplete integration contract until the schema and handler are aligned and tested.
+> The `/step` handler validates ownership, task/campaign relationships, image content, evidence storage, and progress insertion. The frontend does not expose a progress submission screen, so callers should treat this as an API-level workflow and use the backend tests as the contract.
 
 `backend/profile_manager.py` contains Playwright-assisted browser/screenshot helpers. They are not invoked by the current frontend or FastAPI routes.
 
@@ -111,9 +111,9 @@ Users can choose any supported status manually. Automatic evaluation occurs when
 
 ## 7. Notifications and cleanup
 
-Manual status changes and status-engine transitions call `asyncio.create_task()` for optional Discord webhook, Telegram Bot API, and X messages. The affected API handlers are synchronous, so this scheduling pattern should be reviewed and tested for the chosen FastAPI runtime before notification delivery is relied upon. Missing credentials disable each adapter. Adapter exceptions are swallowed, and the current notifier does not insert notification-log rows.
+Manual status changes, evidence submissions, and authenticated `/refresh` transitions schedule optional Discord webhook, Telegram Bot API, and X messages through FastAPI background tasks. Each workflow event is recorded in the user-owned notification table before best-effort provider dispatch; a row does not confirm external delivery. Missing credentials disable each adapter and adapter exceptions are swallowed. The periodic status loop remains incomplete and does not currently dispatch transitions.
 
-The API also runs daily cleanup of `DONE` progress rows older than `CLEANUP_HOURS` (72 by default). It does not implement corresponding screenshot-file deletion.
+The API also runs daily cleanup of `DONE` progress rows older than `CLEANUP_HOURS` (72 by default) and safely removes corresponding in-root screenshot files when possible.
 
 ## 8. Separate root broadcaster
 

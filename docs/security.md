@@ -22,7 +22,7 @@ Never commit or share:
 
 The checked-in workflow does not need a private key or seed phrase. The `wallet` profile field is text metadata only.
 
-The backend currently keeps configuration as Python constants in `backend/config.py`; a deployment should provide protected secret handling rather than committing real values. See [Configuration](configuration.md).
+The backend reads environment variables in `backend/config.py`; a deployment should provide protected secret handling rather than committing real values. See [Configuration](configuration.md) and the root [.env.example](../.env.example).
 
 ## 🔐 Authentication and authorization
 
@@ -38,7 +38,7 @@ The backend currently keeps configuration as Python constants in `backend/config
 
 1. Replace the development JWT key with a strong, unpredictable secret.
 2. Use HTTPS whenever the browser and API are not strictly on one trusted machine.
-3. Narrow CORS to the exact frontend origins you control; the checked-in configuration includes a wildcard.
+3. Narrow `AIP_CORS_ORIGINS` to the exact frontend origins you control.
 4. Consider an HttpOnly, Secure, SameSite cookie strategy before deploying to untrusted users; `localStorage` tokens are readable by successful same-origin XSS.
 5. Review token lifetime and add a deliberate revocation/rotation strategy if the application becomes multi-user or public.
 
@@ -57,7 +57,11 @@ The default `backend/aws.db` contains usernames, profile metadata, campaign data
 
 Configured status messages can leave the host through Discord, Telegram, or X. Use destinations you control, grant the minimum platform permissions, and inspect message content before enabling an adapter.
 
-The notifier is best-effort: adapter exceptions are swallowed, there is no retry queue or delivery receipt, and the current implementation does not write notification-log rows. A missing credential disables a channel; it is not a security fallback.
+The notifier is best-effort: adapter exceptions are swallowed and there is no retry queue or delivery receipt. The application records a user-scoped workflow event when a notification is triggered, but that row does not prove external delivery. A missing credential disables a channel; it is not a security fallback.
+
+## 🛡️ Runtime security checks
+
+Authenticated users can inspect `GET /security/status` (also available in the frontend Security Center). The response reports known configuration controls such as the JWT default, CORS scope, public-only wallet metadata, and evidence retention. It is an operational checklist, not a security score, penetration test, or guarantee of safety.
 
 ## Data minimization
 
