@@ -8,6 +8,20 @@ const highlights = [
   ['Claim intelligence', 'Stay ahead of snapshots, deadlines, and eligible rewards.'],
 ];
 
+function getRequestErrorMessage(requestError) {
+  const detail = requestError.response?.data?.detail;
+  if (Array.isArray(detail)) {
+    return detail.map((item) => {
+      const field = item.loc?.at(-1);
+      if (field === 'username' && item.type === 'string_too_short') return 'Username must be at least 3 characters.';
+      if (field === 'username' && item.type === 'string_pattern_mismatch') return 'Username may only use letters, numbers, dots, hyphens, and underscores.';
+      if (field === 'password' && item.type === 'string_too_short') return 'Password must be at least 8 characters.';
+      return item.msg || 'Please check the highlighted fields.';
+    }).join(' ');
+  }
+  return detail || 'We could not complete that request. Please try again.';
+}
+
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +46,7 @@ function Login({ onLogin }) {
       } else onLogin(response.data.access_token);
     } catch (requestError) {
       const isBackendOffline = !requestError.response && requestError.request;
-      setError(requestError.response?.data?.detail || (isBackendOffline ? 'The backend service is unavailable. Start the API server on port 8000 and try again.' : 'We could not complete that request. Please try again.'));
+      setError(isBackendOffline ? 'The backend service is unavailable. Start the API server on port 8000 and try again.' : getRequestErrorMessage(requestError));
     } finally { setLoading(false); }
   };
 
@@ -63,7 +77,7 @@ function Login({ onLogin }) {
             <div className="mb-10 flex items-center gap-3 lg:hidden"><span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-400"><Icon name="sparkles" className="h-5 w-5" /></span><span className="font-semibold">Airdrop Intel</span></div>
             <div className="mb-8"><p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-400">{isRegister ? 'Create your workspace' : 'Welcome back'}</p><h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{isRegister ? 'Start operating smarter' : 'Sign in to continue'}</h2><p className="mt-3 text-sm leading-6 text-slate-500">{isRegister ? 'Create an account to organize your airdrop workflow.' : 'Access your intelligence dashboard and farming operations.'}</p></div>
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div><label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-300">Username</label><input id="username" name="username" autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Enter your username" className="w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-slate-700 focus:border-indigo-400/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-indigo-500/10" /></div>
+              <div><label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-300">Username</label><input id="username" name="username" autoComplete="username" required minLength={isRegister ? 3 : undefined} maxLength={isRegister ? 64 : undefined} pattern={isRegister ? "[A-Za-z0-9_.-]+" : undefined} title={isRegister ? 'Use 3-64 letters, numbers, dots, hyphens, or underscores.' : undefined} value={username} onChange={(event) => setUsername(event.target.value)} placeholder={isRegister ? '3-64 letters, numbers, or .-_ ' : 'Enter your username'} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-slate-700 focus:border-indigo-400/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-indigo-500/10" /></div>
               <div><div className="mb-2 flex items-center justify-between"><label htmlFor="password" className="text-sm font-medium text-slate-300">Password</label>{!isRegister && <span className="text-xs text-slate-600">Secure access</span>}</div><input id="password" name="password" type="password" autoComplete={isRegister ? 'new-password' : 'current-password'} minLength={isRegister ? 8 : undefined} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder={isRegister ? 'Minimum 8 characters' : 'Enter your password'} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-slate-700 focus:border-indigo-400/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-indigo-500/10" /></div>
               {error && <div role="alert" className="flex gap-3 rounded-xl border border-red-500/15 bg-red-500/[0.07] px-4 py-3 text-sm text-red-300"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />{error}</div>}
               {message && <div role="status" className="flex gap-3 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.07] px-4 py-3 text-sm text-emerald-300"><Icon name="check" className="h-4 w-4 shrink-0" />{message}</div>}
