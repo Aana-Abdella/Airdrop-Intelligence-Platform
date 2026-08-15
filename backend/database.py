@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -58,6 +59,11 @@ def create_tables() -> None:
                 deadline TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'NEW',
                 claim_link TEXT,
+                catalog_id TEXT,
+                source TEXT,
+                description TEXT,
+                network TEXT,
+                participation_types TEXT NOT NULL DEFAULT '[]',
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
@@ -142,6 +148,7 @@ def _create_indexes(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_progress_profile_task ON progress(profile_id, task_id)",
         "CREATE INDEX IF NOT EXISTS idx_progress_timestamp ON progress(timestamp)",
         "CREATE INDEX IF NOT EXISTS idx_notifications_airdrop_timestamp ON notifications(airdrop_id, timestamp)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_airdrops_user_catalog ON airdrops(user_id, catalog_id) WHERE catalog_id IS NOT NULL",
     ]
     for statement in indexes:
         conn.execute(statement)
@@ -154,6 +161,16 @@ def _migrate_airdrops_table(conn: sqlite3.Connection) -> None:
         conn.execute(f"ALTER TABLE airdrops ADD COLUMN user_id INTEGER NOT NULL DEFAULT {default_user_id}")
     if "reward_amount" not in columns:
         conn.execute("ALTER TABLE airdrops ADD COLUMN reward_amount TEXT")
+    if "catalog_id" not in columns:
+        conn.execute("ALTER TABLE airdrops ADD COLUMN catalog_id TEXT")
+    if "source" not in columns:
+        conn.execute("ALTER TABLE airdrops ADD COLUMN source TEXT")
+    if "description" not in columns:
+        conn.execute("ALTER TABLE airdrops ADD COLUMN description TEXT")
+    if "network" not in columns:
+        conn.execute("ALTER TABLE airdrops ADD COLUMN network TEXT")
+    if "participation_types" not in columns:
+        conn.execute("ALTER TABLE airdrops ADD COLUMN participation_types TEXT NOT NULL DEFAULT '[]'")
     conn.commit()
 
 
@@ -197,7 +214,7 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
 def insert_airdrop(user_id: int, airdrop: Dict[str, Any], tasks: List[Dict[str, Any]]) -> int:
     with get_db_connection() as conn:
         cursor = conn.execute(
-            "INSERT INTO airdrops (user_id, project_name, website, reward_type, reward_amount, deadline, status, claim_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO airdrops (user_id, project_name, website, reward_type, reward_amount, deadline, status, claim_link, catalog_id, source, description, network, participation_types) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 user_id,
                 airdrop["project_name"],
@@ -207,6 +224,11 @@ def insert_airdrop(user_id: int, airdrop: Dict[str, Any], tasks: List[Dict[str, 
                 airdrop["deadline"],
                 airdrop.get("status", "NEW"),
                 airdrop.get("claim_link"),
+                airdrop.get("catalog_id"),
+                airdrop.get("source"),
+                airdrop.get("description"),
+                airdrop.get("network"),
+                json.dumps(airdrop.get("participation_types", [])),
             ),
         )
         airdrop_id = cursor.lastrowid
@@ -232,6 +254,7 @@ def get_airdrops_by_user(user_id: int) -> List[Dict[str, Any]]:
     with get_db_connection() as conn:
         airdrops = [dict(row) for row in conn.execute("SELECT * FROM airdrops WHERE user_id = ? ORDER BY created_at DESC", (user_id,)).fetchall()]
         for airdrop in airdrops:
+            airdrop["participation_types"] = json.loads(airdrop.get("participation_types") or "[]")
             tasks = [dict(row) for row in conn.execute("SELECT * FROM tasks WHERE airdrop_id = ?", (airdrop["id"],)).fetchall()]
             airdrop["tasks"] = tasks
         return airdrops
@@ -243,8 +266,18 @@ def get_airdrop_by_id(airdrop_id: int) -> Optional[Dict[str, Any]]:
         if not row:
             return None
         airdrop = dict(row)
+        airdrop["participation_types"] = json.loads(airdrop.get("participation_types") or "[]")
         airdrop["tasks"] = [dict(row) for row in conn.execute("SELECT * FROM tasks WHERE airdrop_id = ?", (airdrop_id,)).fetchall()]
         return airdrop
+
+
+def get_airdrop_by_catalog_id(user_id: int, catalog_id: str) -> Optional[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM airdrops WHERE user_id = ? AND catalog_id = ?",
+            (user_id, catalog_id),
+        ).fetchone()
+    return get_airdrop_by_id(int(row["id"])) if row else None
 
 
 def get_profiles_by_user(user_id: int) -> List[Dict[str, Any]]:

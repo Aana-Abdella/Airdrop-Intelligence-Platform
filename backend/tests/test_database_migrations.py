@@ -57,3 +57,33 @@ def test_profile_migration_allows_insert_with_legacy_schema(monkeypatch, tmp_pat
     assert profile_id
     assert [profile["email"] for profile in profiles] == ["existing@example.com", "new@example.com"]
     assert all(profile["created_at"] for profile in profiles)
+
+
+def test_airdrop_migration_persists_discovery_metadata(monkeypatch, tmp_path):
+    db_path = tmp_path / "airdrop-metadata.db"
+    monkeypatch.setattr(database, "DB_PATH", db_path)
+    database.create_tables()
+    user_id = database.create_user("campaign_owner", "hash")
+
+    airdrop_id = database.insert_airdrop(
+        user_id,
+        {
+            "project_name": "Testnet Campaign",
+            "website": "https://example.com",
+            "reward_type": "Points",
+            "reward_amount": "TBA",
+            "deadline": "2026-12-01T00:00:00",
+            "status": "ONGOING",
+            "catalog_id": "testnet-campaign",
+            "source": "Catalog",
+            "description": "A test campaign",
+            "network": "Testnet",
+            "participation_types": ["Testnet", "Wallet activity"],
+        },
+        [{"task_name": "Use the testnet", "task_type": "Testnet"}],
+    )
+
+    stored = database.get_airdrop_by_catalog_id(user_id, "testnet-campaign")
+    assert stored["id"] == airdrop_id
+    assert stored["participation_types"] == ["Testnet", "Wallet activity"]
+    assert stored["tasks"][0]["task_type"] == "Testnet"
